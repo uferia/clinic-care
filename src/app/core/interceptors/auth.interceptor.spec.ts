@@ -38,4 +38,14 @@ describe('authInterceptor', () => {
     const req = capture(`${API}/patients`);
     expect(req.headers.has('Authorization')).toBe(false);
   });
+
+  it('does not attach a token to non-API requests even when signed in', () => {
+    const future = Math.floor(Date.now() / 1000) + 3600;
+    localStorage.setItem('clinic-care.session', JSON.stringify({
+      email: 'a@b.com', name: 'A', picture: '', exp: future, credential: 'tok123',
+    }));
+    TestBed.inject(AuthService);
+    const req = capture('https://example.com/other');
+    expect(req.headers.has('Authorization')).toBe(false);
+  });
 });

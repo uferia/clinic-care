@@ -103,7 +103,7 @@ export class AuthService {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (!raw) return null;
       const u = JSON.parse(raw) as AuthUser;
-      if (!u?.exp || u.exp * 1000 <= Date.now()) {
+      if (!u || !Number.isFinite(u.exp) || u.exp * 1000 <= Date.now()) {
         localStorage.removeItem(STORAGE_KEY);
         return null;
       }
