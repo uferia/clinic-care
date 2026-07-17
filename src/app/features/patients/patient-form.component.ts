@@ -1,5 +1,5 @@
 import { Component, signal, computed, effect, inject, input } from '@angular/core';
-import { form, FormField, required, email, pattern, validate, submit } from '@angular/forms/signals';
+import { form, FormField, required, email, validate, submit } from '@angular/forms/signals';
 import { HttpClient } from '@angular/common/http';
 import { Router, RouterLink } from '@angular/router';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -10,6 +10,8 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatCardModule } from '@angular/material/card';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { CreatePatientDto, Patient } from './patient.model';
+import { isValidMobile, toE164 } from './phone.util';
+import { API } from '../../core/api';
 
 @Component({
   selector: 'app-patient-form',
@@ -62,9 +64,9 @@ import { CreatePatientDto, Patient } from './patient.model';
           <mat-form-field appearance="outline">
             <mat-label>Phone</mat-label>
             <input matInput [formField]="patientForm.phone" />
-            <mat-hint>Format: 09XXXXXXXXX</mat-hint>
+            <mat-hint>Mobile, e.g. 0917 123 4567 or +63 917 123 4567</mat-hint>
             @if (patientForm.phone().touched() && patientForm.phone().invalid()) {
-              <mat-error>Use format 09XXXXXXXXX</mat-error>
+              <mat-error>Enter a valid PH mobile number</mat-error>
             }
           </mat-form-field>
 
@@ -170,7 +172,11 @@ export class PatientFormComponent {
     required(schema.email);
     email(schema.email);
     required(schema.phone);
-    pattern(schema.phone, /^09\d{9}$/);
+    validate(schema.phone, ({ value }) =>
+      value() && !isValidMobile(value())
+        ? { kind: 'invalidMobile', message: 'Enter a valid PH mobile number' }
+        : null
+    );
     required(schema.birthDate);
     validate(schema.birthDate, ({ value }) =>          // custom validator: just a function
       value() && new Date(value()) > new Date()
@@ -184,7 +190,7 @@ export class PatientFormComponent {
     effect(() => {
       const id = this.id();
       if (id) {
-        this.http.get<Patient>(`http://localhost:3000/patients/${id}`)
+        this.http.get<Patient>(`${API}/patients/${id}`)
           .subscribe(({ id: _, createdAt: __, ...dto }) => this.model.set(dto));
       }
     });
@@ -193,10 +199,11 @@ export class PatientFormComponent {
   save() {
     if (this.patientForm().invalid()) return;
     this.saving.set(true);
-    const dto = this.model();
+    // Store one canonical phone form regardless of how it was typed.
+    const dto = { ...this.model(), phone: toE164(this.model().phone) };
     const req$ = this.id()
-      ? this.http.patch(`http://localhost:3000/patients/${this.id()}`, dto)
-      : this.http.post(`http://localhost:3000/patients`, { ...dto, createdAt: new Date().toISOString() });
+      ? this.http.patch(`${API}/patients/${this.id()}`, dto)
+      : this.http.post(`${API}/patients`, { ...dto, createdAt: new Date().toISOString() });
     req$.subscribe({
       next: () => this.router.navigate(['/patients']),
       error: () => this.saving.set(false),

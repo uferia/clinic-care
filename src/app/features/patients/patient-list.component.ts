@@ -14,6 +14,7 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatCardModule } from '@angular/material/card';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { PatientStore } from './patient.store';
+import { toNationalFormat } from './phone.util';
 
 @Component({
   selector: 'app-patient-list',
@@ -76,7 +77,7 @@ import { PatientStore } from './patient.store';
                   <span class="blood-chip">{{ p.bloodType }}</span>
                 </div>
                 <a class="contact" [href]="'mailto:' + p.email">{{ p.email }}</a>
-                <a class="contact" [href]="'tel:' + p.phone">{{ p.phone }}</a>
+                <a class="contact" [href]="'tel:' + p.phone">{{ phone(p.phone) }}</a>
                 <button
                   mat-icon-button
                   class="card-delete"
@@ -104,7 +105,7 @@ import { PatientStore } from './patient.store';
 
           <ng-container matColumnDef="phone">
             <th mat-header-cell *matHeaderCellDef>Phone</th>
-            <td mat-cell *matCellDef="let p" class="muted">{{ p.phone }}</td>
+            <td mat-cell *matCellDef="let p" class="muted">{{ phone(p.phone) }}</td>
           </ng-container>
 
           <ng-container matColumnDef="bloodType">
@@ -267,33 +268,14 @@ import { PatientStore } from './patient.store';
       text-align: right;
     }
 
-    .state {
-      display: grid;
-      justify-items: center;
-      gap: 0.5rem;
-      padding: 3rem 1rem;
-    }
-
-    .state mat-icon {
-      --mat-icon-color: var(--mat-sys-outline);
-      width: 2.5rem;
-      height: 2.5rem;
-      font-size: 2.5rem;
-    }
-
-    .error-state mat-icon {
-      --mat-icon-color: var(--mat-sys-error);
-    }
-
-    .error-state p {
-      color: var(--mat-sys-error);
-      margin: 0;
-    }
   `,
 })
 export class PatientListComponent {
   store = inject(PatientStore);
   columns = ['name', 'email', 'phone', 'bloodType', 'actions'];
+
+  // Stored E.164 is canonical but unreadable; show the national form.
+  phone = toNationalFormat;
 
   // The 5-column table needs ~494px and clips the delete action below that,
   // so handsets get a card list. Tablets are wide enough for the real table.

@@ -21,12 +21,34 @@
   flex: 1 1 auto;
 }
 
-.active-link {
-  color: var(--mat-sys-primary);
+.main-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.125rem;
 }
 
-@media (max-width: 37.5rem) {
+.active-link {
+  color: var(--mat-sys-primary);
+  background: var(--mat-sys-secondary-container);
+}
+
+// Four labelled buttons overflow a phone toolbar; drop to icons only. The label
+// survives as the accessible name via the button's own text content.
+@media (max-width: 47rem) {
   .app-bar {
-    padding-inline: 0.75rem;
+    padding-inline: 0.5rem;
+  }
+
+  .brand {
+    display: none;
+  }
+
+  .nav-text {
+    display: none;
+  }
+
+  .main-nav a {
+    min-width: 3rem;
+    padding-inline: 0.5rem;
   }
 }

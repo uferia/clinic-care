@@ -1,6 +1,8 @@
 import { HttpClient, httpResource } from "@angular/common/http";
 import { computed, inject, Service, signal } from "@angular/core";
 import { Patient } from "./patient.model";
+import { toPhoneSearchTerm } from "./phone.util";
+import { API } from "../../core/api";
 
 @Service()
 export class PatientStore {
@@ -37,15 +39,17 @@ export class PatientStore {
     // json-server v1 dropped `q` full-text search and `_like`. `_where` with
     // nested `contains` is the only substring match it still supports.
     if (q) {
-      params.set('_where', JSON.stringify({
-        or: [
-          { firstName: { contains: q } },
-          { lastName: { contains: q } },
-          { phone: { contains: q } },
-        ],
-      }));
+      const or: Record<string, unknown>[] = [
+        { firstName: { contains: q } },
+        { lastName: { contains: q } },
+      ];
+      // Phones are stored E.164 ('+639171234567'), so a term typed as
+      // '0917...' only matches once reduced to its national digits.
+      const phone = toPhoneSearchTerm(q);
+      if (phone) or.push({ phone: { contains: phone } });
+      params.set('_where', JSON.stringify({ or }));
     }
-    return `http://localhost:3000/patients?${params}`;
+    return `${API}/patients?${params}`;
   });
 
   patients = computed(() => {
@@ -66,7 +70,7 @@ export class PatientStore {
 
   remove(id: string){
     this._deleted.update(s => new Set(s).add(id));
-    this.http.delete(`http://localhost:3000/patients/${id}`).subscribe({
+    this.http.delete(`${API}/patients/${id}`).subscribe({
         next: () => this.patientsResource.reload(),
         error: () => this._deleted.update(s => {
             const next = new Set(s);

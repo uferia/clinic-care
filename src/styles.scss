@@ -41,3 +41,96 @@ body {
 .muted {
   color: var(--mat-sys-on-surface-variant);
 }
+
+// Empty / error placeholder, shared by every list and the dashboard.
+.state {
+  display: grid;
+  justify-items: center;
+  gap: 0.5rem;
+  padding: 3rem 1rem;
+
+  mat-icon {
+    --mat-icon-color: var(--mat-sys-outline);
+    width: 2.5rem;
+    height: 2.5rem;
+    font-size: 2.5rem;
+  }
+
+  &.error-state {
+    mat-icon {
+      --mat-icon-color: var(--mat-sys-error);
+    }
+
+    p {
+      color: var(--mat-sys-error);
+      margin: 0;
+    }
+  }
+}
+
+// Appointment status chip. The dot carries the reserved status hue; the text
+// label always states the status, so color is never the only channel, and the
+// ink stays a text token so contrast never rides on the status color.
+.status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.125rem 0.5rem;
+  border-radius: 1rem;
+  font: var(--mat-sys-label-small);
+  background: var(--mat-sys-surface-container-highest);
+  color: var(--mat-sys-on-surface);
+  white-space: nowrap;
+  // As a grid item the chip would stretch to fill its column; keep it hugging
+  // its label.
+  justify-self: start;
+  width: fit-content;
+
+  &::before {
+    content: '';
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    background: var(--mat-sys-outline);
+    flex: none;
+  }
+
+  &[data-status='confirmed']::before {
+    background: var(--status-good);
+  }
+
+  &[data-status='pending']::before {
+    background: var(--status-warning);
+  }
+
+  &[data-status='cancelled']::before {
+    background: var(--status-critical);
+  }
+}
+
+// Reserved status palette — fixed, never themed, never reused as a categorical
+// series color. Always paired with a text label so hue is never load-bearing.
+:root {
+  --status-good: #0ca30c;
+  --status-warning: #fab219;
+  --status-serious: #ec835a;
+  --status-critical: #d03b3b;
+
+  // Single-series chart hue. The M3 teal cannot be used here: every step of the
+  // generated palette falls below the 0.1 chroma floor and reads as gray. These
+  // two steps pass all checks against this app's surfaces (#f7fafa / #101414).
+  --chart-teal: #0d9488;
+}
+
+// Dark steps are selected for the dark surface, not an automatic flip. Declared
+// under both scopes: the media query follows the OS, the data-theme scope wins
+// for an explicit toggle.
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme='light'])) {
+    --chart-teal: #19a394;
+  }
+}
+
+:root[data-theme='dark'] {
+  --chart-teal: #19a394;
+}

@@ -17,4 +17,11 @@ import { MatIconModule } from '@angular/material/icon';
   templateUrl: './app.html',
   styleUrl: './app.scss',
 })
-export class App {}
+export class App {
+  links = [
+    { path: '/dashboard', label: 'Dashboard', icon: 'dashboard' },
+    { path: '/patients', label: 'Patients', icon: 'groups' },
+    { path: '/doctors', label: 'Doctors', icon: 'medical_services' },
+    { path: '/appointments', label: 'Appointments', icon: 'event' },
+  ];
+}
