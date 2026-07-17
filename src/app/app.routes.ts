@@ -1,14 +1,22 @@
 import { Routes } from '@angular/router';
+import { authGuard } from './core/auth/auth.guard';
 
 export const routes: Routes = [
   { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
   {
     path: 'dashboard',
+    canActivate: [authGuard],
     loadComponent: () =>
       import('./features/dashboard/dashboard.component').then(m => m.DashboardComponent),
   },
   {
+    path: 'login',
+    loadComponent: () =>
+      import('./features/auth/login.component').then(m => m.LoginComponent),
+  },
+  {
     path: 'patients',
+    canActivate: [authGuard],
     children: [
       { path: '', loadComponent: () => import('./features/patients/patient-list.component').then(m => m.PatientListComponent) },
       { path: 'new', loadComponent: () => import('./features/patients/patient-form.component').then(m => m.PatientFormComponent) },
@@ -17,6 +25,7 @@ export const routes: Routes = [
   },
   {
     path: 'doctors',
+    canActivate: [authGuard],
     children: [
       { path: '', loadComponent: () => import('./features/doctors/doctor-list.component').then(m => m.DoctorListComponent) },
       { path: 'new', loadComponent: () => import('./features/doctors/doctor-form.component').then(m => m.DoctorFormComponent) },
@@ -25,6 +34,7 @@ export const routes: Routes = [
   },
   {
     path: 'appointments',
+    canActivate: [authGuard],
     children: [
       { path: '', loadComponent: () => import('./features/appointments/appointment-list.component').then(m => m.AppointmentListComponent) },
       { path: 'new', loadComponent: () => import('./features/appointments/appointment-form.component').then(m => m.AppointmentFormComponent) },

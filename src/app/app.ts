@@ -1,8 +1,9 @@
-import { Component } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
+import { AuthService } from './core/auth/auth.service';
 
 @Component({
   selector: 'app-root',
@@ -18,10 +19,16 @@ import { MatIconModule } from '@angular/material/icon';
   styleUrl: './app.scss',
 })
 export class App {
+  protected auth = inject(AuthService);
+
   links = [
     { path: '/dashboard', label: 'Dashboard', icon: 'dashboard' },
     { path: '/patients', label: 'Patients', icon: 'groups' },
     { path: '/doctors', label: 'Doctors', icon: 'medical_services' },
     { path: '/appointments', label: 'Appointments', icon: 'event' },
   ];
+
+  logout() {
+    this.auth.logout();
+  }
 }

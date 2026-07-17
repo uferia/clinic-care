@@ -108,6 +108,10 @@ interface PatientFormModel {
             </mat-select>
           </mat-form-field>
 
+          @if (saveError()) {
+            <div class="save-error" role="alert">{{ saveError() }}</div>
+          }
+
           <div class="actions">
             <a mat-button routerLink="/patients">Cancel</a>
             <button
@@ -170,6 +174,16 @@ interface PatientFormModel {
     .actions mat-spinner {
       margin-right: 0.5rem;
     }
+
+    .save-error {
+      grid-column: 1 / -1;
+      margin-top: 0.5rem;
+      padding: 0.625rem 0.875rem;
+      border-radius: 0.5rem;
+      background: var(--mat-sys-error-container);
+      color: var(--mat-sys-on-error-container);
+      font: var(--mat-sys-body-small);
+    }
   `,
 })
 export class PatientFormComponent {
@@ -178,6 +192,7 @@ export class PatientFormComponent {
 
   id = input<string>();                    // route param via withComponentInputBinding
   saving = signal(false);
+  saveError = signal<string | null>(null);
   bloodTypes = BLOOD_TYPES;
 
   /** Today at midnight — the latest a birth date can be. */
@@ -232,6 +247,7 @@ export class PatientFormComponent {
   save() {
     if (this.patientForm().invalid()) return;
     this.saving.set(true);
+    this.saveError.set(null);
     const model = this.model();
     // The wire format is a string date and one canonical phone form, whatever
     // the picker and the phone field happen to hold.
@@ -245,7 +261,12 @@ export class PatientFormComponent {
       : this.http.post(`${API}/patients`, { ...dto, createdAt: new Date().toISOString() });
     req$.subscribe({
       next: () => this.router.navigate(['/patients']),
-      error: () => this.saving.set(false),
+      error: () => {
+        this.saving.set(false);
+        this.saveError.set(
+          "Couldn't save. Check the API is running and try again.",
+        );
+      },
     });
   }
 }
