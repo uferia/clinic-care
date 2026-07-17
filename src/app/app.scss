@@ -52,3 +52,27 @@
     padding-inline: 0.5rem;
   }
 }
+
+.user {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-left: 0.5rem;
+}
+
+.avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.user-name {
+  font: var(--mat-sys-body-medium);
+}
+
+@media (max-width: 40rem) {
+  .user-name {
+    display: none;
+  }
+}
