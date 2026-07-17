@@ -1,5 +1,5 @@
 import { Component, signal, computed, effect, inject, input } from '@angular/core';
-import { form, FormField, required, email, validate, submit } from '@angular/forms/signals';
+import { form, FormField, required, email, maxDate, validate } from '@angular/forms/signals';
 import { HttpClient } from '@angular/common/http';
 import { Router, RouterLink } from '@angular/router';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -8,10 +8,23 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatCardModule } from '@angular/material/card';
+import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { CreatePatientDto, Patient } from './patient.model';
+import { BLOOD_TYPES, BloodType, CreatePatientDto, Patient } from './patient.model';
 import { isValidMobile, toE164 } from './phone.util';
 import { API } from '../../core/api';
+import { fromIsoDate, toIsoDate } from '../../core/date.util';
+import { firstMessage } from '../../core/form-errors';
+
+/** Form-side model: `birthDate` is a real Date so the datepicker can bind to it. */
+interface PatientFormModel {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  birthDate: Date | null;
+  bloodType: BloodType;
+}
 
 @Component({
   selector: 'app-patient-form',
@@ -24,6 +37,7 @@ import { API } from '../../core/api';
     MatButtonModule,
     MatIconModule,
     MatCardModule,
+    MatDatepickerModule,
     MatProgressSpinnerModule,
   ],
   template: `
@@ -72,9 +86,16 @@ import { API } from '../../core/api';
 
           <mat-form-field appearance="outline">
             <mat-label>Birth date</mat-label>
-            <input matInput type="date" [formField]="patientForm.birthDate" />
+            <!-- maxDate on the schema binds the picker's own max, so future
+                 dates are unreachable in the calendar as well as invalid. -->
+            <input
+              matInput
+              [matDatepicker]="birthPicker"
+              [formField]="patientForm.birthDate" />
+            <mat-datepicker-toggle matIconSuffix [for]="birthPicker" />
+            <mat-datepicker #birthPicker startView="multi-year" />
             @if (patientForm.birthDate().touched() && patientForm.birthDate().invalid()) {
-              <mat-error>Birth date is required and cannot be in the future</mat-error>
+              <mat-error>{{ birthDateError() }}</mat-error>
             }
           </mat-form-field>
 
@@ -157,12 +178,18 @@ export class PatientFormComponent {
 
   id = input<string>();                    // route param via withComponentInputBinding
   saving = signal(false);
-  bloodTypes = ['A+','A-','B+','B-','AB+','AB-','O+','O-'] as const;
+  bloodTypes = BLOOD_TYPES;
+
+  /** Today at midnight — the latest a birth date can be. */
+  readonly today = (() => {
+    const d = new Date();
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  })();
 
   // 1. the model IS a signal
-  model = signal<CreatePatientDto>({
+  model = signal<PatientFormModel>({
     firstName: '', lastName: '', email: '', phone: '',
-    birthDate: '', bloodType: 'O+',
+    birthDate: null, bloodType: 'O+',
   });
 
   // 2. validation lives in a schema function — declarative, typed
@@ -177,13 +204,18 @@ export class PatientFormComponent {
         ? { kind: 'invalidMobile', message: 'Enter a valid PH mobile number' }
         : null
     );
-    required(schema.birthDate);
-    validate(schema.birthDate, ({ value }) =>          // custom validator: just a function
-      value() && new Date(value()) > new Date()
-        ? { kind: 'futureDate', message: 'Birth date cannot be in the future' }
-        : null
-    );
+    required(schema.birthDate, { message: 'Birth date is required' });
+    // Now that birthDate is a real Date, the built-in replaces the hand-rolled
+    // future-date check — and binds the picker's max as a side effect.
+    maxDate(schema.birthDate, this.today, {
+      error: { kind: 'futureDate', message: 'Birth date cannot be in the future' },
+    });
   });
+
+  /** First authored error on birthDate — required or the maxDate message. */
+  birthDateError = computed(() =>
+    firstMessage(this.patientForm.birthDate().errors(), 'Enter a valid birth date'),
+  );
 
   constructor() {
     // edit mode: load and patch the model signal
@@ -191,7 +223,8 @@ export class PatientFormComponent {
       const id = this.id();
       if (id) {
         this.http.get<Patient>(`${API}/patients/${id}`)
-          .subscribe(({ id: _, createdAt: __, ...dto }) => this.model.set(dto));
+          .subscribe(({ id: _, createdAt: __, ...dto }) =>
+            this.model.set({ ...dto, birthDate: fromIsoDate(dto.birthDate) }));
       }
     });
   }
@@ -199,8 +232,14 @@ export class PatientFormComponent {
   save() {
     if (this.patientForm().invalid()) return;
     this.saving.set(true);
-    // Store one canonical phone form regardless of how it was typed.
-    const dto = { ...this.model(), phone: toE164(this.model().phone) };
+    const model = this.model();
+    // The wire format is a string date and one canonical phone form, whatever
+    // the picker and the phone field happen to hold.
+    const dto: CreatePatientDto = {
+      ...model,
+      phone: toE164(model.phone),
+      birthDate: model.birthDate ? toIsoDate(model.birthDate) : '',
+    };
     const req$ = this.id()
       ? this.http.patch(`${API}/patients/${this.id()}`, dto)
       : this.http.post(`${API}/patients`, { ...dto, createdAt: new Date().toISOString() });

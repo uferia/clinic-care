@@ -8,15 +8,36 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatCardModule } from '@angular/material/card';
+import { MatDatepickerModule } from '@angular/material/datepicker';
+import { MatTimepickerModule } from '@angular/material/timepicker';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import {
   APPOINTMENT_STATUSES,
   Appointment,
+  AppointmentStatus,
   CreateAppointmentDto,
 } from './appointment.model';
 import { Patient } from '../patients/patient.model';
 import { Doctor } from '../doctors/doctor.model';
 import { API } from '../../core/api';
+import {
+  combineDateTime,
+  fromHm,
+  fromIsoDate,
+  toHm,
+  toIsoDate,
+} from '../../core/date.util';
+import { firstMessage } from '../../core/form-errors';
+
+/** Form-side model: date and time are Dates so the pickers can bind to them. */
+interface BookingFormModel {
+  patientId: string;
+  doctorId: string;
+  date: Date | null;
+  time: Date | null;
+  reason: string;
+  status: AppointmentStatus;
+}
 
 @Component({
   selector: 'app-appointment-form',
@@ -29,6 +50,8 @@ import { API } from '../../core/api';
     MatButtonModule,
     MatIconModule,
     MatCardModule,
+    MatDatepickerModule,
+    MatTimepickerModule,
     MatProgressSpinnerModule,
   ],
   template: `
@@ -71,7 +94,13 @@ import { API } from '../../core/api';
 
           <mat-form-field appearance="outline">
             <mat-label>Date</mat-label>
-            <input matInput type="date" [formField]="bookingForm.date" />
+            <input
+              matInput
+              [matDatepicker]="datePicker"
+              [min]="minDate()"
+              [formField]="bookingForm.date" />
+            <mat-datepicker-toggle matIconSuffix [for]="datePicker" />
+            <mat-datepicker #datePicker />
             @if (bookingForm.date().touched() && bookingForm.date().invalid()) {
               <mat-error>Date is required</mat-error>
             }
@@ -79,7 +108,11 @@ import { API } from '../../core/api';
 
           <mat-form-field appearance="outline">
             <mat-label>Time</mat-label>
-            <input matInput type="time" [formField]="bookingForm.time" />
+            <input matInput [matTimepicker]="timePicker" [formField]="bookingForm.time" />
+            <mat-timepicker-toggle matIconSuffix [for]="timePicker" />
+            <!-- 30-minute slots: a clinic books on the half hour, and a free
+                 text time invites 09:07. -->
+            <mat-timepicker #timePicker interval="30m" />
             <!-- The cross-field past-appointment error is targeted here via
                  validateTree, so it surfaces on the field the user can fix. -->
             @if (bookingForm.time().touched() && bookingForm.time().invalid()) {
@@ -199,13 +232,23 @@ export class AppointmentFormComponent {
     return (raw?.data ?? raw ?? []) as Doctor[];
   });
 
-  model = signal<CreateAppointmentDto>({
+  model = signal<BookingFormModel>({
     patientId: '',
     doctorId: '',
-    date: '',
-    time: '',
+    date: null,
+    time: null,
     reason: '',
     status: 'pending',
+  });
+
+  /**
+   * Earliest selectable day. Only applied when booking — an existing record
+   * being edited may legitimately sit in the past.
+   */
+  minDate = computed(() => {
+    if (this.id()) return null;
+    const d = new Date();
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate());
   });
 
   bookingForm = form(this.model, (schema) => {
@@ -221,10 +264,11 @@ export class AppointmentFormComponent {
     // rather than sitting on the form root where no field would show it.
     validateTree(schema, ({ value, fieldTreeOf }) => {
       const { date, time, status } = value();
-      if (!date || !time) return null;
+      const when = combineDateTime(date, time);
+      if (!when) return null;
       // Past dates are legitimate on records being completed or cancelled.
       if (status === 'completed' || status === 'cancelled') return null;
-      return new Date(`${date}T${time}`) > new Date()
+      return when > new Date()
         ? null
         : {
             kind: 'pastAppointment',
@@ -234,11 +278,13 @@ export class AppointmentFormComponent {
     });
   });
 
-  /** First error message on `time`, whether required or the cross-field rule. */
-  timeError = computed(() => {
-    const errs = this.bookingForm.time().errors() as { message?: string }[];
-    return errs[0]?.message ?? 'Time is required';
-  });
+  /**
+   * First authored message on `time` — required, or the cross-field rule.
+   * Skips the timepicker's own message-less validator errors.
+   */
+  timeError = computed(() =>
+    firstMessage(this.bookingForm.time().errors(), 'Time is required'),
+  );
 
   constructor() {
     effect(() => {
@@ -246,7 +292,12 @@ export class AppointmentFormComponent {
       if (id) {
         this.http
           .get<Appointment>(`${API}/appointments/${id}`)
-          .subscribe(({ id: _, ...dto }) => this.model.set(dto));
+          .subscribe(({ id: _, ...dto }) =>
+            this.model.set({
+              ...dto,
+              date: fromIsoDate(dto.date),
+              time: fromHm(dto.time),
+            }));
       }
     });
   }
@@ -254,7 +305,13 @@ export class AppointmentFormComponent {
   save() {
     if (this.bookingForm().invalid()) return;
     this.saving.set(true);
-    const dto = this.model();
+    const model = this.model();
+    // Back to the wire format: `YYYY-MM-DD` and `HH:mm`.
+    const dto: CreateAppointmentDto = {
+      ...model,
+      date: model.date ? toIsoDate(model.date) : '',
+      time: model.time ? toHm(model.time) : '',
+    };
     const req$ = this.id()
       ? this.http.patch(`${API}/appointments/${this.id()}`, dto)
       : this.http.post(`${API}/appointments`, dto);

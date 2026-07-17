@@ -31,6 +31,13 @@ function unwrap<T>(raw: unknown): T[] {
   return (r?.data ?? r ?? []) as T[];
 }
 
+/** Local `YYYY-MM-DD`. Avoids toISOString(), which shifts across the date line. */
+function toIsoDate(d: Date): string {
+  const m = `${d.getMonth() + 1}`.padStart(2, '0');
+  const day = `${d.getDate()}`.padStart(2, '0');
+  return `${d.getFullYear()}-${m}-${day}`;
+}
+
 @Service()
 export class DashboardStore {
   // The dashboard aggregates across the whole dataset, so it deliberately
@@ -112,16 +119,40 @@ export class DashboardStore {
     }));
   });
 
-  /** Bookings per calendar day, chronological, excluding cancelled. */
+  /**
+   * Bookings per calendar day, excluding cancelled.
+   *
+   * Days with no bookings are emitted as zeros rather than omitted: dropping
+   * them would render a quiet weekend as if it never existed and place two
+   * non-consecutive days side by side, which misreads as a continuous run.
+   */
   byDay = computed<DayDatum[]>(() => {
     const counts = new Map<string, number>();
     for (const a of this.appointments()) {
-      if (a.status === 'cancelled') continue;
-      if (!a.date) continue;
+      if (a.status === 'cancelled' || !a.date) continue;
       counts.set(a.date, (counts.get(a.date) ?? 0) + 1);
     }
-    return [...counts.entries()]
-      .map(([date, count]) => ({ date, count }))
-      .sort((a, b) => a.date.localeCompare(b.date));
+    if (!counts.size) return [];
+
+    const days = [...counts.keys()].sort();
+    const out: DayDatum[] = [];
+    const cursor = new Date(`${days[0]}T00:00:00`);
+    const last = new Date(`${days[days.length - 1]}T00:00:00`);
+
+    while (cursor <= last) {
+      const iso = toIsoDate(cursor);
+      out.push({ date: iso, count: counts.get(iso) ?? 0 });
+      cursor.setDate(cursor.getDate() + 1);
+    }
+    return out;
   });
+
+  /** Appointments scheduled for today, whatever their status. */
+  todayCount = computed(() => {
+    const today = toIsoDate(new Date());
+    return this.appointments().filter(a => a.date === today).length;
+  });
+
+  /** The soonest upcoming appointment, or null when nothing is scheduled. */
+  nextUp = computed<UpcomingRow | null>(() => this.upcoming()[0] ?? null);
 }
