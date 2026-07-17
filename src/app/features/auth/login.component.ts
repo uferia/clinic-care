@@ -1,4 +1,4 @@
-import { Component, ElementRef, effect, inject, viewChild } from '@angular/core';
+import { Component, ElementRef, effect, inject, signal, viewChild } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
@@ -15,7 +15,11 @@ import { AuthService } from '../../core/auth/auth.service';
         <h1>ClinicCare</h1>
         <p class="sub">Sign in to continue</p>
         <div #gbtn class="gbtn"></div>
-        @if (!auth.ready()) {
+        @if (loadError()) {
+          <div class="load-error" role="alert">
+            Sign-in is unavailable right now. Check your connection and reload the page.
+          </div>
+        } @else if (!auth.ready()) {
           <div class="loading">
             <mat-spinner diameter="24" />
             <span>Loading sign-in…</span>
@@ -70,6 +74,15 @@ import { AuthService } from '../../core/auth/auth.service';
       color: var(--mat-sys-on-surface-variant);
       font: var(--mat-sys-body-small);
     }
+
+    .load-error {
+      margin-top: 0.5rem;
+      padding: 0.625rem 0.875rem;
+      border-radius: 0.5rem;
+      background: var(--mat-sys-error-container);
+      color: var(--mat-sys-on-error-container);
+      font: var(--mat-sys-body-small);
+    }
   `,
 })
 export class LoginComponent {
@@ -78,6 +91,8 @@ export class LoginComponent {
   private route = inject(ActivatedRoute);
 
   private buttonHost = viewChild<ElementRef<HTMLElement>>('gbtn');
+
+  protected loadError = signal(false);
 
   constructor() {
     // Render the Google button once the GIS client is ready and the host exists.
@@ -95,6 +110,7 @@ export class LoginComponent {
         this.router.navigateByUrl(returnUrl);
       }
     });
-    this.auth.initialize();
+    // Surface a failure to load the GIS script instead of spinning forever.
+    this.auth.initialize().catch(() => this.loadError.set(true));
   }
 }

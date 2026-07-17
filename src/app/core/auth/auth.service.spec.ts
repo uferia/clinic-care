@@ -69,4 +69,13 @@ describe('AuthService session validity', () => {
     expect(auth.isAuthenticated()).toBe(false);
     expect(localStorage.getItem('clinic-care.session')).toBeNull();
   });
+
+  it('initialize() rejects and leaves ready false when GIS never loads', async () => {
+    const auth = TestBed.inject(AuthService);
+    // No window.google in the test environment; shorten the wait so the
+    // timeout path is exercised quickly instead of the 10s default.
+    (auth as unknown as { gisTimeoutMs: number }).gisTimeoutMs = 30;
+    await expect(auth.initialize()).rejects.toThrow(/failed to load/i);
+    expect(auth.ready()).toBe(false);
+  });
 });

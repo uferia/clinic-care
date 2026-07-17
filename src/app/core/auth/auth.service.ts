@@ -114,13 +114,20 @@ export class AuthService {
     }
   }
 
+  /** How long to wait for the GIS script before giving up. */
+  private gisTimeoutMs = 10000;
+
   private waitForGis(): Promise<void> {
-    return new Promise(resolve => {
+    return new Promise((resolve, reject) => {
       if (window.google?.accounts?.id) return resolve();
+      const start = Date.now();
       const timer = setInterval(() => {
         if (window.google?.accounts?.id) {
           clearInterval(timer);
           resolve();
+        } else if (Date.now() - start >= this.gisTimeoutMs) {
+          clearInterval(timer);
+          reject(new Error('Google sign-in failed to load'));
         }
       }, 50);
     });
