@@ -139,6 +139,10 @@ interface BookingFormModel {
             </mat-form-field>
           }
 
+          @if (saveError()) {
+            <div class="save-error" role="alert">{{ saveError() }}</div>
+          }
+
           <div class="actions">
             <a mat-button routerLink="/appointments">Cancel</a>
             <button
@@ -198,6 +202,16 @@ interface BookingFormModel {
       margin-right: 0.5rem;
     }
 
+    .save-error {
+      grid-column: 1 / -1;
+      margin-top: 0.5rem;
+      padding: 0.625rem 0.875rem;
+      border-radius: 0.5rem;
+      background: var(--mat-sys-error-container);
+      color: var(--mat-sys-on-error-container);
+      font: var(--mat-sys-body-small);
+    }
+
     @media (max-width: 40rem) {
       .grid {
         grid-template-columns: 1fr;
@@ -212,6 +226,7 @@ export class AppointmentFormComponent {
 
   id = input<string>();
   saving = signal(false);
+  saveError = signal<string | null>(null);
   statuses = APPOINTMENT_STATUSES;
 
   // Dropdown sources. _per_page=100 keeps every option on one payload; a real
@@ -305,6 +320,7 @@ export class AppointmentFormComponent {
   save() {
     if (this.bookingForm().invalid()) return;
     this.saving.set(true);
+    this.saveError.set(null);
     const model = this.model();
     // Back to the wire format: `YYYY-MM-DD` and `HH:mm`.
     const dto: CreateAppointmentDto = {
@@ -317,7 +333,12 @@ export class AppointmentFormComponent {
       : this.http.post(`${API}/appointments`, dto);
     req$.subscribe({
       next: () => this.router.navigate(['/appointments']),
-      error: () => this.saving.set(false),
+      error: () => {
+        this.saving.set(false);
+        this.saveError.set(
+          "Couldn't save. Check the API is running and try again.",
+        );
+      },
     });
   }
 }

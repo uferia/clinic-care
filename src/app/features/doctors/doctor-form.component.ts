@@ -73,6 +73,10 @@ import { API } from '../../core/api';
             </mat-slide-toggle>
           </div>
 
+          @if (saveError()) {
+            <div class="save-error" role="alert">{{ saveError() }}</div>
+          }
+
           <div class="actions">
             <a mat-button routerLink="/doctors">Cancel</a>
             <button
@@ -133,6 +137,16 @@ import { API } from '../../core/api';
       margin-right: 0.5rem;
     }
 
+    .save-error {
+      grid-column: 1 / -1;
+      margin-top: 0.5rem;
+      padding: 0.625rem 0.875rem;
+      border-radius: 0.5rem;
+      background: var(--mat-sys-error-container);
+      color: var(--mat-sys-on-error-container);
+      font: var(--mat-sys-body-small);
+    }
+
     @media (max-width: 40rem) {
       .grid {
         grid-template-columns: 1fr;
@@ -147,6 +161,7 @@ export class DoctorFormComponent {
 
   id = input<string>();
   saving = signal(false);
+  saveError = signal<string | null>(null);
   specialties = SPECIALTIES;
 
   model = signal<CreateDoctorDto>({
@@ -183,13 +198,19 @@ export class DoctorFormComponent {
   save() {
     if (this.doctorForm().invalid()) return;
     this.saving.set(true);
+    this.saveError.set(null);
     const dto = this.model();
     const req$ = this.id()
       ? this.http.patch(`${API}/doctors/${this.id()}`, dto)
       : this.http.post(`${API}/doctors`, dto);
     req$.subscribe({
       next: () => this.router.navigate(['/doctors']),
-      error: () => this.saving.set(false),
+      error: () => {
+        this.saving.set(false);
+        this.saveError.set(
+          "Couldn't save. Check the API is running and try again.",
+        );
+      },
     });
   }
 }
