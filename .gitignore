@@ -42,9 +42,3 @@ __screenshots__/
 # System files
 .DS_Store
 Thumbs.db
-
-# Ignore all files and extensions by default
-*
-.*
-!*/
-!.gitignore
