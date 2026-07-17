@@ -59,4 +59,14 @@ describe('AuthService session validity', () => {
     expect(auth.isAuthenticated()).toBe(false);
     expect(localStorage.getItem('clinic-care.session')).toBeNull();
   });
+
+  it('rejects and clears a session whose exp is missing', () => {
+    const b64url = (o: object) =>
+      btoa(JSON.stringify(o)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    const token = `${b64url({ alg: 'none' })}.${b64url({ email: 'a@b.com', name: 'A', picture: '' })}.sig`;
+    const auth = TestBed.inject(AuthService);
+    auth.handleCredential({ credential: token });
+    expect(auth.isAuthenticated()).toBe(false);
+    expect(localStorage.getItem('clinic-care.session')).toBeNull();
+  });
 });

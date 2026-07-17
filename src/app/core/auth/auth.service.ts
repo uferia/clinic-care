@@ -47,7 +47,7 @@ export class AuthService {
   isAuthenticated(): boolean {
     const u = this.user();
     if (!u) return false;
-    if (u.exp * 1000 <= Date.now()) {
+    if (!Number.isFinite(u.exp) || u.exp * 1000 <= Date.now()) {
       this.clear();
       return false;
     }
