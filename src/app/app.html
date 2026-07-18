@@ -4,21 +4,23 @@
   <span class="spacer"></span>
 
   @if (auth.user(); as user) {
-    <nav class="main-nav" aria-label="Main">
-      @for (link of links; track link.path) {
-        <a mat-button [routerLink]="link.path" routerLinkActive="active-link">
-          <mat-icon>{{ link.icon }}</mat-icon>
-          <span class="nav-text">{{ link.label }}</span>
-        </a>
-      }
-    </nav>
+    @if (clinic.isActive()) {
+      <nav class="main-nav" aria-label="Main">
+        @for (link of links; track link.path) {
+          <a mat-button [routerLink]="link.path" routerLinkActive="active-link">
+            <mat-icon>{{ link.icon }}</mat-icon>
+            <span class="nav-text">{{ link.label }}</span>
+          </a>
+        }
+      </nav>
+    }
 
-    @if (clinic.access(); as plan) {
+    @if (clinic.isActive() && clinic.access(); as plan) {
       <span class="plan-badge" [class.trial]="plan.status === 'trialing'">
         @if (plan.status === 'trialing') {
           Trial · {{ clinic.daysLeft() }}d left
         } @else if (plan.status === 'active') {
-          Active
+          Active until {{ plan.activeUntil | date: 'mediumDate' }}
         }
       </span>
     }

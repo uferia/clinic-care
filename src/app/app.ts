@@ -1,5 +1,6 @@
 import { Component, inject } from '@angular/core';
 import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
+import { DatePipe } from '@angular/common';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -12,6 +13,7 @@ import { ClinicContextService } from './core/clinic/clinic-context.service';
     RouterOutlet,
     RouterLink,
     RouterLinkActive,
+    DatePipe,
     MatToolbarModule,
     MatButtonModule,
     MatIconModule,
