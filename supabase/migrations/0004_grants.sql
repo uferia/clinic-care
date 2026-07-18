@@ -15,7 +15,3 @@ grant select on public.clinics       to authenticated;
 grant select on public.subscriptions to authenticated;
 grant select on public.memberships   to authenticated;
 grant select on public.super_admins  to authenticated;
-
--- Future tables created in public inherit the same baseline for authenticated.
-alter default privileges in schema public
-  grant select, insert, update, delete on tables to authenticated;

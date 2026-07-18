@@ -33,6 +33,7 @@ select is(
 -- Expired clinic: write is rejected by RLS.
 select throws_ok(
   $$ insert into public.patients (first_name, last_name) values ('X', 'Y') $$,
+  '42501',
   null,
   'expired clinic cannot insert a patient'
 );
