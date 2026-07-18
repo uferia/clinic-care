@@ -71,15 +71,15 @@ import { SPECIALTIES } from './doctor.model';
       </mat-slide-toggle>
     </div>
 
-    @if (store.doctorsResource.isLoading()) {
+    @if (store.isLoading()) {
       <mat-progress-bar mode="indeterminate" />
     }
 
-    @if (store.doctorsResource.error()) {
+    @if (store.error()) {
       <div class="state error-state">
         <mat-icon>cloud_off</mat-icon>
         <p>Failed to load doctors.</p>
-        <button mat-stroked-button (click)="store.doctorsResource.reload()">
+        <button mat-stroked-button (click)="store.reload()">
           <mat-icon>refresh</mat-icon>
           Retry
         </button>
