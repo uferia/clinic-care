@@ -63,6 +63,22 @@ Local backend runs on Supabase (Docker required):
     npx supabase test db   # run pgTAP tests
     npx supabase stop      # stop the stack
 
+### Google sign-in (local)
+
+1. Create a Google OAuth **Web** client (Google Cloud Console -> APIs & Services
+   -> Credentials): authorized origin `http://localhost:4200`, redirect URI
+   `http://127.0.0.1:54321/auth/v1/callback`.
+2. Put the client id/secret in `supabase/.env` (gitignored — never commit):
+
+       SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID=...
+       SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET=...
+
+3. `npx supabase stop && npx supabase start` to load the provider.
+4. `npm start` + `npm run api`, open http://localhost:4200, sign in with Google.
+
+The provider is enabled in `config.toml` under `[auth.external.google]`; `site_url`
+and `additional_redirect_urls` are set to the app origin `http://localhost:4200`.
+
 ## Additional Resources
 
 For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
