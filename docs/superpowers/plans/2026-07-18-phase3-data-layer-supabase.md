@@ -17,6 +17,8 @@
 - Models gain a read-only `clinicId: string` populated from `clinic_id`.
 - Preserve existing behaviors: patients paginate (pageSize 5) + search first/last/phone; doctors paginate (6) + search name/specialty + filter specialty + availableOnly; appointments paginate (8) + sort date,time + filter status + resolve patient/doctor names + per-row status change/delete/busy; dashboard aggregates across all rows.
 - Angular 22 `resource({ params, loader })` returns `{ value, isLoading, error, reload }`. Tests run via `npx ng test --include="<spec>" --watch=false` (NOT raw `npx vitest run` — that errors "describe is not defined"). Full suite: `npx ng test --watch=false`. On this Windows machine, run `ng test` from **PowerShell**, not Git Bash.
+- **Every task MUST verify with BOTH `npx ng test --watch=false` AND `npx ng build`.** `ng test` only typechecks what the specs import, so it does NOT catch app-wide type breaks (e.g. a component reading a now-private store field). `ng build` is the real typecheck gate.
+- **When a store's internal `resource` field becomes `private`, expose the loading/error/reload it via public accessors** — `readonly isLoading = computed(() => this.<x>Resource.isLoading())`, `readonly error = computed(() => this.<x>Resource.error())`, `reload() { this.<x>Resource.reload(); }` — and update the feature's list component to call `store.isLoading()/error()/reload()` instead of `store.<x>Resource.*`. The list components (patients/doctors/appointments) all read those three off the resource today.
 - Commits carry NO `Co-Authored-By:` / Anthropic / Claude trailer — repo default author only.
 
 ---
