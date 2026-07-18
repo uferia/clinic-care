@@ -1,18 +1,22 @@
-import { ApplicationConfig, provideBrowserGlobalErrorListeners } from '@angular/core';
+import { ApplicationConfig, inject, provideAppInitializer, provideBrowserGlobalErrorListeners } from '@angular/core';
 import { provideRouter, withComponentInputBinding } from '@angular/router';
-import { provideHttpClient, withInterceptors } from '@angular/common/http';
+import { provideHttpClient } from '@angular/common/http';
 import { provideNativeDateAdapter } from '@angular/material/core';
 
 import { routes } from './app.routes';
-import { authInterceptor } from './core/interceptors/auth.interceptor';
+import { provideSupabase } from './core/supabase.client';
+import { AuthService } from './core/auth/auth.service';
 
 export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
-    provideHttpClient(withInterceptors([authInterceptor])),
-    // Material's datepicker/timepicker need an adapter; the native one works in
-    // Date and needs no extra dependency.
+    // Data layer still talks to json-server this phase; no auth interceptor.
+    provideHttpClient(),
     provideNativeDateAdapter(),
-    provideRouter(routes, withComponentInputBinding())
-  ]
+    provideSupabase(),
+    // Load the Supabase session before the first route activates so the guard
+    // can decide synchronously.
+    provideAppInitializer(() => inject(AuthService).initialize()),
+    provideRouter(routes, withComponentInputBinding()),
+  ],
 };

@@ -1,13 +1,27 @@
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { App } from './app';
+import { SUPABASE } from './core/supabase.client';
 
 describe('App', () => {
   beforeEach(async () => {
     localStorage.clear();
     await TestBed.configureTestingModule({
       imports: [App],
-      providers: [provideRouter([])],
+      providers: [
+        provideRouter([]),
+        {
+          provide: SUPABASE,
+          useValue: {
+            auth: {
+              getSession: vi.fn(),
+              onAuthStateChange: vi.fn(),
+              signInWithOAuth: vi.fn(),
+              signOut: vi.fn(),
+            },
+          },
+        },
+      ],
     }).compileComponents();
   });
 

@@ -1,81 +1,84 @@
-import { decodeJwt } from './auth.service';
+import { TestBed } from '@angular/core/testing';
+import { provideRouter, Router } from '@angular/router';
+import { AuthService } from './auth.service';
+import { SUPABASE } from '../supabase.client';
 
-/** Build a JWT with the given payload (unsigned; signature segment is ignored). */
-function makeJwt(payload: object): string {
-  const b64url = (o: object) =>
-    btoa(JSON.stringify(o)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-  return `${b64url({ alg: 'none' })}.${b64url(payload)}.sig`;
+type Handler = (event: string, session: unknown) => void;
+
+function makeSession(overrides: Record<string, unknown> = {}) {
+  return {
+    user: {
+      email: 'doc@clinic.com',
+      user_metadata: { full_name: 'Doc Holliday', avatar_url: 'http://x/p.png' },
+    },
+    ...overrides,
+  };
 }
 
-describe('decodeJwt', () => {
-  it('decodes the payload of a well-formed token', () => {
-    const token = makeJwt({
-      email: 'a@b.com', name: 'Ada Lovelace',
-      picture: 'http://x/p.png', exp: 1893456000,
+describe('AuthService', () => {
+  function setup(initialSession: unknown) {
+    const handlerBox: { fn: Handler } = { fn: () => {} };
+    const signInWithOAuth = vi.fn().mockResolvedValue({ data: {}, error: null });
+    const signOut = vi.fn().mockResolvedValue({ error: null });
+    const getSession = vi.fn().mockResolvedValue({ data: { session: initialSession }, error: null });
+    const client = {
+      auth: {
+        getSession,
+        onAuthStateChange: (cb: Handler) => {
+          handlerBox.fn = cb;
+          return { data: { subscription: { unsubscribe: () => {} } } };
+        },
+        signInWithOAuth,
+        signOut,
+      },
+    };
+    TestBed.configureTestingModule({
+      providers: [provideRouter([]), { provide: SUPABASE, useValue: client }],
     });
-    expect(decodeJwt(token)).toEqual({
-      email: 'a@b.com', name: 'Ada Lovelace',
-      picture: 'http://x/p.png', exp: 1893456000,
+    const auth = TestBed.inject(AuthService);
+    return { auth, handlerBox, signInWithOAuth, signOut, router: TestBed.inject(Router) };
+  }
+
+  it('loads the current session and maps it to a user', async () => {
+    const { auth } = setup(makeSession());
+    await auth.initialize();
+    expect(auth.ready()).toBe(true);
+    expect(auth.isAuthenticated()).toBe(true);
+    expect(auth.user()).toEqual({
+      email: 'doc@clinic.com', name: 'Doc Holliday', picture: 'http://x/p.png',
     });
   });
 
-  it('returns null for a token without three segments', () => {
-    expect(decodeJwt('not.a')).toBeNull();
-  });
-
-  it('returns null when the payload is not valid JSON', () => {
-    expect(decodeJwt('aaa.@@@.bbb')).toBeNull();
-  });
-});
-
-import { TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
-import { AuthService } from './auth.service';
-
-describe('AuthService session validity', () => {
-  beforeEach(() => {
-    localStorage.clear();
-    TestBed.configureTestingModule({ providers: [provideRouter([])] });
-  });
-
-  it('is not authenticated with no session', () => {
-    expect(TestBed.inject(AuthService).isAuthenticated()).toBe(false);
-  });
-
-  it('is authenticated for an unexpired stored session', () => {
-    const future = Math.floor(Date.now() / 1000) + 3600;
-    localStorage.setItem('clinic-care.session', JSON.stringify({
-      email: 'a@b.com', name: 'A', picture: '', exp: future, credential: 'x.y.z',
-    }));
-    expect(TestBed.inject(AuthService).isAuthenticated()).toBe(true);
-  });
-
-  it('drops an expired stored session', () => {
-    const past = Math.floor(Date.now() / 1000) - 10;
-    localStorage.setItem('clinic-care.session', JSON.stringify({
-      email: 'a@b.com', name: 'A', picture: '', exp: past, credential: 'x.y.z',
-    }));
-    const auth = TestBed.inject(AuthService);
+  it('has no user when there is no session', async () => {
+    const { auth } = setup(null);
+    await auth.initialize();
+    expect(auth.ready()).toBe(true);
     expect(auth.isAuthenticated()).toBe(false);
-    expect(localStorage.getItem('clinic-care.session')).toBeNull();
+    expect(auth.user()).toBeNull();
   });
 
-  it('rejects and clears a session whose exp is missing', () => {
-    const b64url = (o: object) =>
-      btoa(JSON.stringify(o)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-    const token = `${b64url({ alg: 'none' })}.${b64url({ email: 'a@b.com', name: 'A', picture: '' })}.sig`;
-    const auth = TestBed.inject(AuthService);
-    auth.handleCredential({ credential: token });
-    expect(auth.isAuthenticated()).toBe(false);
-    expect(localStorage.getItem('clinic-care.session')).toBeNull();
+  it('reflects a later sign-in via onAuthStateChange', async () => {
+    const { auth, handlerBox } = setup(null);
+    await auth.initialize();
+    handlerBox.fn('SIGNED_IN', makeSession());
+    expect(auth.user()?.email).toBe('doc@clinic.com');
   });
 
-  it('initialize() rejects and leaves ready false when GIS never loads', async () => {
-    const auth = TestBed.inject(AuthService);
-    // No window.google in the test environment; shorten the wait so the
-    // timeout path is exercised quickly instead of the 10s default.
-    (auth as unknown as { gisTimeoutMs: number }).gisTimeoutMs = 30;
-    await expect(auth.initialize()).rejects.toThrow(/failed to load/i);
-    expect(auth.ready()).toBe(false);
+  it('signIn delegates to signInWithOAuth for google', async () => {
+    const { auth, signInWithOAuth } = setup(null);
+    await auth.initialize();
+    await auth.signIn('/patients');
+    expect(signInWithOAuth).toHaveBeenCalledOnce();
+    expect(signInWithOAuth.mock.calls[0][0].provider).toBe('google');
+  });
+
+  it('logout signs out, clears the user, and routes to /login', async () => {
+    const { auth, signOut, router } = setup(makeSession());
+    await auth.initialize();
+    const nav = vi.spyOn(router, 'navigate').mockResolvedValue(true);
+    await auth.logout();
+    expect(signOut).toHaveBeenCalledOnce();
+    expect(auth.user()).toBeNull();
+    expect(nav).toHaveBeenCalledWith(['/login']);
   });
 });
