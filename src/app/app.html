@@ -12,12 +12,6 @@
             <span class="nav-text">{{ link.label }}</span>
           </a>
         }
-        @if (clinic.isSuperAdmin()) {
-          <a mat-button routerLink="/admin" routerLinkActive="active-link">
-            <mat-icon>admin_panel_settings</mat-icon>
-            <span class="nav-text">Admin</span>
-          </a>
-        }
       </nav>
     }
 
@@ -29,6 +23,13 @@
           Active until {{ plan.activeUntil | date: 'mediumDate' }}
         }
       </span>
+    }
+
+    @if (clinic.isSuperAdmin()) {
+      <a mat-button routerLink="/admin" routerLinkActive="active-link" class="admin-link">
+        <mat-icon>admin_panel_settings</mat-icon>
+        <span class="nav-text">Admin</span>
+      </a>
     }
 
     <span class="user">

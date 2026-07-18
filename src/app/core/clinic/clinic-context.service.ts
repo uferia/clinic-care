@@ -77,6 +77,7 @@ export class ClinicContextService {
       });
     } catch {
       this.access.set(null);
+      this.isSuperAdmin.set(false);
     } finally {
       this.ready.set(true);
     }
