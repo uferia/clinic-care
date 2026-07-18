@@ -1,15 +1,9 @@
-import { HttpClient, httpResource } from '@angular/common/http';
-import { computed, inject, Service, signal } from '@angular/core';
-import { Appointment, AppointmentStatus, AppointmentView } from './appointment.model';
-import { Patient } from '../patients/patient.model';
-import { Doctor } from '../doctors/doctor.model';
-import { API } from '../../core/api';
+import { computed, inject, resource, Service, signal } from '@angular/core';
+import { AppointmentStatus, AppointmentView } from './appointment.model';
+import { AppointmentRowEmbedded } from '../../core/db.types';
+import { SUPABASE } from '../../core/supabase.client';
 
-/** Shape json-server returns for `_embed=patient&_embed=doctor`. */
-type EmbeddedAppointment = Appointment & {
-  patient?: Patient | null;
-  doctor?: Doctor | null;
-};
+const EMBED = '*, patient:patients(*), doctor:doctors(*)';
 
 function toDate(date: string, time: string): Date | null {
   if (!date || !time) return null;
@@ -19,7 +13,7 @@ function toDate(date: string, time: string): Date | null {
 
 @Service()
 export class AppointmentStore {
-  private http = inject(HttpClient);
+  private supabase = inject(SUPABASE);
 
   readonly pageSize = 8;
 
@@ -38,44 +32,52 @@ export class AppointmentStore {
     this._page.set(p);
   }
 
-  appointmentsResource = httpResource<EmbeddedAppointment[]>(() => {
-    const params = new URLSearchParams({
-      _page: String(this._page()),
-      _per_page: String(this.pageSize),
-      _sort: 'date,time',
-    });
-    params.append('_embed', 'patient');
-    params.append('_embed', 'doctor');
+  private appointmentsResource = resource({
+    params: () => ({ page: this._page(), status: this._status() }),
+    loader: async ({ params }) => {
+      let query = this.supabase
+        .from('appointments')
+        .select(EMBED, { count: 'exact' })
+        .order('date')
+        .order('time');
 
-    if (this._status()) {
-      params.set('_where', JSON.stringify({ status: { eq: this._status() } }));
-    }
+      if (params.status) query = query.eq('status', params.status);
 
-    return `${API}/appointments?${params}`;
+      const from = (params.page - 1) * this.pageSize;
+      query = query.range(from, from + this.pageSize - 1);
+
+      const { data, count, error } = await query;
+      if (error) throw error;
+      return { rows: (data ?? []) as AppointmentRowEmbedded[], total: count ?? 0 };
+    },
   });
 
-  private rows = computed(() => {
-    const raw = this.appointmentsResource.value() as any;
-    return (raw?.data ?? raw ?? []) as EmbeddedAppointment[];
-  });
-
-  total = computed(() => {
-    const raw = this.appointmentsResource.value() as any;
-    return (raw?.items ?? this.rows().length) as number;
-  });
+  private rows = computed(() => this.appointmentsResource.value()?.rows ?? []);
+  total = computed(() => this.appointmentsResource.value()?.total ?? 0);
 
   appointments = computed<AppointmentView[]>(() =>
     this.rows().map(a => ({
-      ...a,
-      // A patient deleted through the UI leaves patientId null on its
-      // appointments — json-server nulls the FK rather than blocking.
+      id: a.id,
+      clinicId: a.clinic_id,
+      patientId: a.patient_id,
+      doctorId: a.doctor_id,
+      date: a.date,
+      time: a.time,
+      reason: a.reason ?? '',
+      status: a.status as AppointmentStatus,
       patientName: a.patient
-        ? `${a.patient.lastName}, ${a.patient.firstName}`
+        ? `${a.patient.last_name}, ${a.patient.first_name}`
         : '— removed —',
       doctorName: a.doctor?.name ?? '— removed —',
       when: toDate(a.date, a.time),
     })),
   );
+
+  readonly isLoading = computed(() => this.appointmentsResource.isLoading());
+  readonly error = computed(() => this.appointmentsResource.error());
+  reload() {
+    this.appointmentsResource.reload();
+  }
 
   private _busy = signal<Set<string>>(new Set());
   busy = this._busy.asReadonly();
@@ -90,23 +92,25 @@ export class AppointmentStore {
 
   setStatusOf(id: string, status: AppointmentStatus) {
     this.markBusy(id, true);
-    this.http.patch(`${API}/appointments/${id}`, { status }).subscribe({
-      next: () => {
-        this.appointmentsResource.reload();
+    this.supabase
+      .from('appointments')
+      .update({ status })
+      .eq('id', id)
+      .then(({ error }: { error: unknown }) => {
+        if (!error) this.appointmentsResource.reload();
         this.markBusy(id, false);
-      },
-      error: () => this.markBusy(id, false),
-    });
+      });
   }
 
   remove(id: string) {
     this.markBusy(id, true);
-    this.http.delete(`${API}/appointments/${id}`).subscribe({
-      next: () => {
-        this.appointmentsResource.reload();
+    this.supabase
+      .from('appointments')
+      .delete()
+      .eq('id', id)
+      .then(({ error }: { error: unknown }) => {
+        if (!error) this.appointmentsResource.reload();
         this.markBusy(id, false);
-      },
-      error: () => this.markBusy(id, false),
-    });
+      });
   }
 }

@@ -57,15 +57,15 @@ import { APPOINTMENT_STATUSES, AppointmentStatus, AppointmentView } from './appo
     </header>
 
     <mat-card appearance="outlined" class="surface">
-      @if (store.appointmentsResource.isLoading()) {
+      @if (store.isLoading()) {
         <mat-progress-bar mode="indeterminate" />
       }
 
-      @if (store.appointmentsResource.error()) {
+      @if (store.error()) {
         <div class="state error-state">
           <mat-icon>cloud_off</mat-icon>
           <p>Failed to load appointments.</p>
-          <button mat-stroked-button (click)="store.appointmentsResource.reload()">
+          <button mat-stroked-button (click)="store.reload()">
             <mat-icon>refresh</mat-icon>
             Retry
           </button>
