@@ -1,34 +1,14 @@
-import { httpResource } from '@angular/common/http';
-import { computed, Service } from '@angular/core';
-import { Appointment, AppointmentStatus } from '../appointments/appointment.model';
-import { Patient } from '../patients/patient.model';
-import { Doctor } from '../doctors/doctor.model';
-import { API } from '../../core/api';
+import { computed, inject, resource, Service } from '@angular/core';
+import { AppointmentStatus } from '../appointments/appointment.model';
+import { Patient, toPatient } from '../patients/patient.model';
+import { Doctor, toDoctor } from '../doctors/doctor.model';
+import { AppointmentRowEmbedded } from '../../core/db.types';
+import { SUPABASE } from '../../core/supabase.client';
 
-type Embedded = Appointment & { patient?: Patient | null; doctor?: Doctor | null };
-
-export interface StatusDatum {
-  status: AppointmentStatus;
-  count: number;
-}
-
-export interface DayDatum {
-  /** ISO `YYYY-MM-DD`. */
-  date: string;
-  count: number;
-}
-
+export interface StatusDatum { status: AppointmentStatus; count: number; }
+export interface DayDatum { date: string; count: number; }
 export interface UpcomingRow {
-  id: string;
-  when: Date;
-  patientName: string;
-  doctorName: string;
-  status: AppointmentStatus;
-}
-
-function unwrap<T>(raw: unknown): T[] {
-  const r = raw as any;
-  return (r?.data ?? r ?? []) as T[];
+  id: string; when: Date; patientName: string; doctorName: string; status: AppointmentStatus;
 }
 
 /** Local `YYYY-MM-DD`. Avoids toISOString(), which shifts across the date line. */
@@ -40,31 +20,42 @@ function toIsoDate(d: Date): string {
 
 @Service()
 export class DashboardStore {
-  // The dashboard aggregates across the whole dataset, so it deliberately
-  // bypasses pagination. Fine against a mock API of this size; a real backend
-  // would expose aggregate endpoints instead of shipping every row.
-  private patientsResource = httpResource<Patient[]>(
-    () => `${API}/patients?_page=1&_per_page=1000`,
-  );
-  private doctorsResource = httpResource<Doctor[]>(
-    () => `${API}/doctors?_page=1&_per_page=1000`,
-  );
-  private appointmentsResource = httpResource<Embedded[]>(
-    () => `${API}/appointments?_page=1&_per_page=1000&_embed=patient&_embed=doctor`,
+  private supabase = inject(SUPABASE);
+
+  private patientsResource = resource({
+    loader: async () => {
+      const { data, error } = await this.supabase.from('patients').select('*');
+      if (error) throw error;
+      return (data ?? []).map(toPatient);
+    },
+  });
+  private doctorsResource = resource({
+    loader: async () => {
+      const { data, error } = await this.supabase.from('doctors').select('*');
+      if (error) throw error;
+      return (data ?? []).map(toDoctor);
+    },
+  });
+  private appointmentsResource = resource({
+    loader: async () => {
+      const { data, error } = await this.supabase
+        .from('appointments')
+        .select('*, patient:patients(*), doctor:doctors(*)');
+      if (error) throw error;
+      return (data ?? []) as AppointmentRowEmbedded[];
+    },
+  });
+
+  isLoading = computed(() =>
+    this.patientsResource.isLoading() ||
+    this.doctorsResource.isLoading() ||
+    this.appointmentsResource.isLoading(),
   );
 
-  isLoading = computed(
-    () =>
-      this.patientsResource.isLoading() ||
-      this.doctorsResource.isLoading() ||
-      this.appointmentsResource.isLoading(),
-  );
-
-  error = computed(
-    () =>
-      this.patientsResource.error() ??
-      this.doctorsResource.error() ??
-      this.appointmentsResource.error(),
+  error = computed(() =>
+    this.patientsResource.error() ??
+    this.doctorsResource.error() ??
+    this.appointmentsResource.error(),
   );
 
   reload() {
@@ -73,9 +64,13 @@ export class DashboardStore {
     this.appointmentsResource.reload();
   }
 
-  patients = computed(() => unwrap<Patient>(this.patientsResource.value()));
-  doctors = computed(() => unwrap<Doctor>(this.doctorsResource.value()));
-  appointments = computed(() => unwrap<Embedded>(this.appointmentsResource.value()));
+  patients = computed<Patient[]>(() => this.patientsResource.value() ?? []);
+  doctors = computed<Doctor[]>(() => this.doctorsResource.value() ?? []);
+  private apptRows = computed<AppointmentRowEmbedded[]>(() => this.appointmentsResource.value() ?? []);
+
+  // Compatibility for the dashboard component, which reads the raw appointment
+  // rows for a total count; the row shape itself is otherwise private.
+  appointments = computed(() => this.apptRows());
 
   patientCount = computed(() => this.patients().length);
   doctorCount = computed(() => this.doctors().length);
@@ -84,34 +79,33 @@ export class DashboardStore {
   private now = new Date();
 
   upcoming = computed<UpcomingRow[]>(() =>
-    this.appointments()
+    this.apptRows()
       .map(a => ({
         id: a.id,
         when: new Date(`${a.date}T${a.time}`),
         patientName: a.patient
-          ? `${a.patient.lastName}, ${a.patient.firstName}`
+          ? `${a.patient.last_name}, ${a.patient.first_name}`
           : '— removed —',
         doctorName: a.doctor?.name ?? '— removed —',
-        status: a.status,
+        status: a.status as AppointmentStatus,
       }))
-      .filter(
-        r =>
-          !Number.isNaN(r.when.getTime()) &&
-          r.when.getTime() >= this.now.getTime() &&
-          r.status !== 'cancelled',
+      .filter(r =>
+        !Number.isNaN(r.when.getTime()) &&
+        r.when.getTime() >= this.now.getTime() &&
+        r.status !== 'cancelled',
       )
       .sort((a, b) => a.when.getTime() - b.when.getTime()),
   );
 
   upcomingCount = computed(() => this.upcoming().length);
 
-  cancelledCount = computed(
-    () => this.appointments().filter(a => a.status === 'cancelled').length,
+  cancelledCount = computed(() =>
+    this.apptRows().filter(a => a.status === 'cancelled').length,
   );
 
   /** Counts per status, in the canonical status order (not sorted by size). */
   byStatus = computed<StatusDatum[]>(() => {
-    const rows = this.appointments();
+    const rows = this.apptRows();
     const order: AppointmentStatus[] = ['confirmed', 'pending', 'completed', 'cancelled'];
     return order.map(status => ({
       status,
@@ -128,17 +122,15 @@ export class DashboardStore {
    */
   byDay = computed<DayDatum[]>(() => {
     const counts = new Map<string, number>();
-    for (const a of this.appointments()) {
+    for (const a of this.apptRows()) {
       if (a.status === 'cancelled' || !a.date) continue;
       counts.set(a.date, (counts.get(a.date) ?? 0) + 1);
     }
     if (!counts.size) return [];
-
     const days = [...counts.keys()].sort();
     const out: DayDatum[] = [];
     const cursor = new Date(`${days[0]}T00:00:00`);
     const last = new Date(`${days[days.length - 1]}T00:00:00`);
-
     while (cursor <= last) {
       const iso = toIsoDate(cursor);
       out.push({ date: iso, count: counts.get(iso) ?? 0 });
@@ -150,7 +142,7 @@ export class DashboardStore {
   /** Appointments scheduled for today, whatever their status. */
   todayCount = computed(() => {
     const today = toIsoDate(new Date());
-    return this.appointments().filter(a => a.date === today).length;
+    return this.apptRows().filter(a => a.date === today).length;
   });
 
   /** The soonest upcoming appointment, or null when nothing is scheduled. */
