@@ -1,6 +1,5 @@
 import { Component, signal, computed, effect, inject, input } from '@angular/core';
 import { form, FormField, required, email, maxDate, validate } from '@angular/forms/signals';
-import { HttpClient } from '@angular/common/http';
 import { Router, RouterLink } from '@angular/router';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
@@ -10,11 +9,12 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatCardModule } from '@angular/material/card';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { BLOOD_TYPES, BloodType, CreatePatientDto, Patient } from './patient.model';
+import { BLOOD_TYPES, BloodType, CreatePatientDto } from './patient.model';
 import { isValidMobile, toE164 } from './phone.util';
-import { API } from '../../core/api';
 import { fromIsoDate, toIsoDate } from '../../core/date.util';
 import { firstMessage } from '../../core/form-errors';
+import { SUPABASE } from '../../core/supabase.client';
+import { toPatient, toPatientWrite } from './patient.model';
 
 /** Form-side model: `birthDate` is a real Date so the datepicker can bind to it. */
 interface PatientFormModel {
@@ -187,7 +187,7 @@ interface PatientFormModel {
   `,
 })
 export class PatientFormComponent {
-  private http = inject(HttpClient);
+  private supabase = inject(SUPABASE);
   private router = inject(Router);
 
   id = input<string>();                    // route param via withComponentInputBinding
@@ -236,11 +236,20 @@ export class PatientFormComponent {
     // edit mode: load and patch the model signal
     effect(() => {
       const id = this.id();
-      if (id) {
-        this.http.get<Patient>(`${API}/patients/${id}`)
-          .subscribe(({ id: _, createdAt: __, ...dto }) =>
-            this.model.set({ ...dto, birthDate: fromIsoDate(dto.birthDate) }));
-      }
+      if (!id) return;
+      this.supabase
+        .from('patients')
+        .select('*')
+        .eq('id', id)
+        .single()
+        .then(({ data, error }: { data: unknown; error: unknown }) => {
+          if (error || !data) return;
+          const p = toPatient(data as any);
+          this.model.set({
+            firstName: p.firstName, lastName: p.lastName, email: p.email,
+            phone: p.phone, birthDate: fromIsoDate(p.birthDate), bloodType: p.bloodType,
+          });
+        });
     });
   }
 
@@ -256,17 +265,18 @@ export class PatientFormComponent {
       phone: toE164(model.phone),
       birthDate: model.birthDate ? toIsoDate(model.birthDate) : '',
     };
-    const req$ = this.id()
-      ? this.http.patch(`${API}/patients/${this.id()}`, dto)
-      : this.http.post(`${API}/patients`, { ...dto, createdAt: new Date().toISOString() });
-    req$.subscribe({
-      next: () => this.router.navigate(['/patients']),
-      error: () => {
+    const write = toPatientWrite(dto);
+    const id = this.id();
+    const op = id
+      ? this.supabase.from('patients').update(write).eq('id', id)
+      : this.supabase.from('patients').insert(write);
+    op.then(({ error }: { error: unknown }) => {
+      if (error) {
         this.saving.set(false);
-        this.saveError.set(
-          "Couldn't save. Check the API is running and try again.",
-        );
-      },
+        this.saveError.set("Couldn't save. Please try again.");
+      } else {
+        this.router.navigate(['/patients']);
+      }
     });
   }
 }
