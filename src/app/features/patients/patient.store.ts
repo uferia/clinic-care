@@ -60,6 +60,12 @@ export class PatientStore {
   patients = computed<Patient[]>(() => this.patientsResource.value()?.rows ?? []);
   total = computed(() => this.patientsResource.value()?.total ?? 0);
 
+  readonly isLoading = computed(() => this.patientsResource.isLoading());
+  readonly error = computed(() => this.patientsResource.error());
+  reload() {
+    this.patientsResource.reload();
+  }
+
   private _deleted = signal<Set<string>>(new Set());
   visiblePatients = computed(() =>
     this.patients().filter(p => !this._deleted().has(p.id)),

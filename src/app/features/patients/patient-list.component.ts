@@ -52,15 +52,15 @@ import { toNationalFormat } from './phone.util';
     </header>
 
     <mat-card appearance="outlined" class="surface">
-      @if (store.patientsResource.isLoading()) {
+      @if (store.isLoading()) {
         <mat-progress-bar mode="indeterminate" />
       }
 
-      @if (store.patientsResource.error()) {
+      @if (store.error()) {
         <div class="state error-state">
           <mat-icon>cloud_off</mat-icon>
           <p>Failed to load patients.</p>
-          <button mat-stroked-button (click)="store.patientsResource.reload()">
+          <button mat-stroked-button (click)="store.reload()">
             <mat-icon>refresh</mat-icon>
             Retry
           </button>
