@@ -46,3 +46,6 @@ Thumbs.db
 # Supabase
 supabase/.temp
 supabase/.branches
+
+# Playwright MCP artifacts
+.playwright-mcp/
