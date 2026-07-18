@@ -95,12 +95,15 @@ export class DoctorStore {
       .delete()
       .eq('id', id)
       .then(({ error }: { error: unknown }) => {
-        this._deleted.update(s => {
-          const next = new Set(s);
-          next.delete(id);
-          return next;
-        });
-        if (!error) this.doctorsResource.reload();
+        if (error) {
+          this._deleted.update(s => {
+            const next = new Set(s);
+            next.delete(id);
+            return next;
+          });
+        } else {
+          this.doctorsResource.reload();
+        }
       });
   }
 }
