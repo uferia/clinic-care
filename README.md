@@ -54,6 +54,15 @@ ng e2e
 
 Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
 
+## Backend (Supabase)
+
+Local backend runs on Supabase (Docker required):
+
+    npx supabase start     # start local Postgres + Auth
+    npx supabase db reset  # apply all migrations + seed
+    npx supabase test db   # run pgTAP tests
+    npx supabase stop      # stop the stack
+
 ## Additional Resources
 
 For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
