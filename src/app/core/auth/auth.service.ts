@@ -2,6 +2,7 @@ import { Injectable, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import type { Session } from '@supabase/supabase-js';
 import { SUPABASE } from '../supabase.client';
+import { ClinicContextService } from '../clinic/clinic-context.service';
 
 export interface AuthUser {
   email: string;
@@ -13,6 +14,7 @@ export interface AuthUser {
 export class AuthService {
   private supabase = inject(SUPABASE);
   private router = inject(Router);
+  private clinic = inject(ClinicContextService);
 
   readonly user = signal<AuthUser | null>(null);
   readonly ready = signal(false);
@@ -44,6 +46,7 @@ export class AuthService {
   async logout(): Promise<void> {
     await this.supabase.auth.signOut();
     this.user.set(null);
+    this.clinic.clear();
     this.router.navigate(['/login']);
   }
 

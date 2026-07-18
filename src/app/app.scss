@@ -76,3 +76,17 @@
     display: none;
   }
 }
+
+.plan-badge {
+  padding: 0.15rem 0.6rem;
+  border-radius: 1rem;
+  font: var(--mat-sys-label-small);
+  background: var(--mat-sys-secondary-container);
+  color: var(--mat-sys-on-secondary-container);
+  margin-right: 0.5rem;
+  white-space: nowrap;
+}
+.plan-badge.trial {
+  background: var(--mat-sys-tertiary-container);
+  color: var(--mat-sys-on-tertiary-container);
+}

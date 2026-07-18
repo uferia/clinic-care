@@ -13,6 +13,16 @@
       }
     </nav>
 
+    @if (clinic.access(); as plan) {
+      <span class="plan-badge" [class.trial]="plan.status === 'trialing'">
+        @if (plan.status === 'trialing') {
+          Trial · {{ clinic.daysLeft() }}d left
+        } @else if (plan.status === 'active') {
+          Active
+        }
+      </span>
+    }
+
     <span class="user">
       <img
         class="avatar"
