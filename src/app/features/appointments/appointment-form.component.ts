@@ -1,6 +1,5 @@
-import { Component, signal, computed, effect, inject, input } from '@angular/core';
+import { Component, signal, computed, effect, inject, input, resource } from '@angular/core';
 import { form, FormField, required, validateTree } from '@angular/forms/signals';
-import { HttpClient, httpResource } from '@angular/common/http';
 import { Router, RouterLink } from '@angular/router';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
@@ -13,13 +12,14 @@ import { MatTimepickerModule } from '@angular/material/timepicker';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import {
   APPOINTMENT_STATUSES,
-  Appointment,
   AppointmentStatus,
   CreateAppointmentDto,
+  toAppointment,
+  toAppointmentWrite,
 } from './appointment.model';
-import { Patient } from '../patients/patient.model';
-import { Doctor } from '../doctors/doctor.model';
-import { API } from '../../core/api';
+import { toPatient } from '../patients/patient.model';
+import { toDoctor } from '../doctors/doctor.model';
+import { SUPABASE } from '../../core/supabase.client';
 import {
   combineDateTime,
   fromHm,
@@ -28,6 +28,7 @@ import {
   toIsoDate,
 } from '../../core/date.util';
 import { firstMessage } from '../../core/form-errors';
+import { AppointmentStore } from './appointment.store';
 
 /** Form-side model: date and time are Dates so the pickers can bind to them. */
 interface BookingFormModel {
@@ -221,31 +222,30 @@ interface BookingFormModel {
   `,
 })
 export class AppointmentFormComponent {
-  private http = inject(HttpClient);
+  private supabase = inject(SUPABASE);
   private router = inject(Router);
+  private appointmentStore = inject(AppointmentStore);
 
   id = input<string>();
   saving = signal(false);
   saveError = signal<string | null>(null);
   statuses = APPOINTMENT_STATUSES;
 
-  // Dropdown sources. _per_page=100 keeps every option on one payload; a real
-  // backend would want a searchable/typeahead control instead.
-  private patientsResource = httpResource<Patient[]>(
-    () => `${API}/patients?_page=1&_per_page=100&_sort=lastName`,
-  );
-  private doctorsResource = httpResource<Doctor[]>(
-    () => `${API}/doctors?_page=1&_per_page=100&_sort=name`,
-  );
+  private patientsResource = resource({
+    loader: async () => {
+      const { data } = await this.supabase.from('patients').select('*').order('last_name');
+      return ((data as any[]) ?? []).map(toPatient);
+    },
+  });
+  private doctorsResource = resource({
+    loader: async () => {
+      const { data } = await this.supabase.from('doctors').select('*').order('name');
+      return ((data as any[]) ?? []).map(toDoctor);
+    },
+  });
 
-  patients = computed(() => {
-    const raw = this.patientsResource.value() as any;
-    return (raw?.data ?? raw ?? []) as Patient[];
-  });
-  doctors = computed(() => {
-    const raw = this.doctorsResource.value() as any;
-    return (raw?.data ?? raw ?? []) as Doctor[];
-  });
+  patients = computed(() => this.patientsResource.value() ?? []);
+  doctors = computed(() => this.doctorsResource.value() ?? []);
 
   model = signal<BookingFormModel>({
     patientId: '',
@@ -304,16 +304,24 @@ export class AppointmentFormComponent {
   constructor() {
     effect(() => {
       const id = this.id();
-      if (id) {
-        this.http
-          .get<Appointment>(`${API}/appointments/${id}`)
-          .subscribe(({ id: _, ...dto }) =>
-            this.model.set({
-              ...dto,
-              date: fromIsoDate(dto.date),
-              time: fromHm(dto.time),
-            }));
-      }
+      if (!id) return;
+      this.supabase
+        .from('appointments')
+        .select('*')
+        .eq('id', id)
+        .single()
+        .then(({ data, error }: { data: unknown; error: unknown }) => {
+          if (error || !data) return;
+          const a = toAppointment(data as any);
+          this.model.set({
+            patientId: a.patientId,
+            doctorId: a.doctorId,
+            date: fromIsoDate(a.date),
+            time: fromHm(a.time),
+            reason: a.reason,
+            status: a.status,
+          });
+        });
     });
   }
 
@@ -328,17 +336,19 @@ export class AppointmentFormComponent {
       date: model.date ? toIsoDate(model.date) : '',
       time: model.time ? toHm(model.time) : '',
     };
-    const req$ = this.id()
-      ? this.http.patch(`${API}/appointments/${this.id()}`, dto)
-      : this.http.post(`${API}/appointments`, dto);
-    req$.subscribe({
-      next: () => this.router.navigate(['/appointments']),
-      error: () => {
+    const write = toAppointmentWrite(dto);
+    const id = this.id();
+    const op = id
+      ? this.supabase.from('appointments').update(write).eq('id', id)
+      : this.supabase.from('appointments').insert(write);
+    op.then(({ error }: { error: unknown }) => {
+      if (error) {
         this.saving.set(false);
-        this.saveError.set(
-          "Couldn't save. Check the API is running and try again.",
-        );
-      },
+        this.saveError.set("Couldn't save. Please try again.");
+      } else {
+        this.appointmentStore.reload();
+        this.router.navigate(['/appointments']);
+      }
     });
   }
 }

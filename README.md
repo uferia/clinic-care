@@ -74,7 +74,7 @@ Local backend runs on Supabase (Docker required):
        SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET=...
 
 3. `npx supabase stop && npx supabase start` to load the provider.
-4. `npm start` + `npm run api`, open http://localhost:4200, sign in with Google.
+4. `npm start`, open http://localhost:4200, sign in with Google.
 
 The provider is enabled in `config.toml` under `[auth.external.google]`; `site_url`
 and `additional_redirect_urls` are set to the app origin `http://localhost:4200`.

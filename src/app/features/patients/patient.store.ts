@@ -1,82 +1,92 @@
-import { HttpClient, httpResource } from "@angular/common/http";
-import { computed, inject, Service, signal } from "@angular/core";
-import { Patient } from "./patient.model";
-import { toPhoneSearchTerm } from "./phone.util";
-import { API } from "../../core/api";
+import { computed, inject, resource, Service, signal } from '@angular/core';
+import { Patient, toPatient } from './patient.model';
+import { toPhoneSearchTerm } from './phone.util';
+import { SUPABASE } from '../../core/supabase.client';
+
+/** Escape PostgREST `or()` separators so a typed comma/paren can't break the filter. */
+function escapeIlike(term: string): string {
+  return term.replace(/[,()]/g, ' ').trim();
+}
 
 @Service()
 export class PatientStore {
-    private http = inject(HttpClient);
-    
-    private _page = signal(1);
-    private _searchInput = signal('');
-    private _search = signal('');
+  private supabase = inject(SUPABASE);
 
-    page = this._page.asReadonly();
-    searchInput = this._searchInput.asReadonly();
+  readonly pageSize = 5;
 
-    private debounceTimer?: ReturnType<typeof setTimeout>;
-    setSearch(q: string){
-        this._searchInput.set(q);
-        clearTimeout(this.debounceTimer);
-        this.debounceTimer = setTimeout(() => {
-            this._search.set(q);
-            this._page.set(1);
-        }, 300);
-    }
-    setPage(p: number){
-        this._page.set(p);
-    }
+  private _page = signal(1);
+  private _searchInput = signal('');
+  private _search = signal('');
 
-    readonly pageSize = 5;
+  page = this._page.asReadonly();
+  searchInput = this._searchInput.asReadonly();
 
-    patientsResource = httpResource<Patient[]>(() => {
-    const params = new URLSearchParams({
-      _page: String(this._page()),
-      _per_page: String(this.pageSize),
-    });
-    const q = this._search().trim();
-    // json-server v1 dropped `q` full-text search and `_like`. `_where` with
-    // nested `contains` is the only substring match it still supports.
-    if (q) {
-      const or: Record<string, unknown>[] = [
-        { firstName: { contains: q } },
-        { lastName: { contains: q } },
-      ];
-      // Phones are stored E.164 ('+639171234567'), so a term typed as
-      // '0917...' only matches once reduced to its national digits.
-      const phone = toPhoneSearchTerm(q);
-      if (phone) or.push({ phone: { contains: phone } });
-      params.set('_where', JSON.stringify({ or }));
-    }
-    return `${API}/patients?${params}`;
+  private debounceTimer?: ReturnType<typeof setTimeout>;
+  setSearch(q: string) {
+    this._searchInput.set(q);
+    clearTimeout(this.debounceTimer);
+    this.debounceTimer = setTimeout(() => {
+      this._search.set(q);
+      this._page.set(1);
+    }, 300);
+  }
+
+  setPage(p: number) {
+    this._page.set(p);
+  }
+
+  private patientsResource = resource({
+    params: () => ({ page: this._page(), search: this._search().trim() }),
+    loader: async ({ params }) => {
+      let query = this.supabase.from('patients').select('*', { count: 'exact' });
+
+      if (params.search) {
+        const q = escapeIlike(params.search);
+        const ors = [`first_name.ilike.%${q}%`, `last_name.ilike.%${q}%`];
+        const phone = toPhoneSearchTerm(params.search);
+        if (phone) ors.push(`phone.ilike.%${phone}%`);
+        query = query.or(ors.join(','));
+      }
+
+      const from = (params.page - 1) * this.pageSize;
+      query = query.range(from, from + this.pageSize - 1);
+
+      const { data, count, error } = await query;
+      if (error) throw error;
+      return { rows: (data ?? []).map(toPatient), total: count ?? 0 };
+    },
   });
 
-  patients = computed(() => {
-    const raw = this.patientsResource.value() as any;
-    return (raw?.data ?? raw ?? []) as Patient[];
-  })
+  patients = computed<Patient[]>(() => this.patientsResource.value()?.rows ?? []);
+  total = computed(() => this.patientsResource.value()?.total ?? 0);
 
-  // json-server returns `items` (total matching rows) alongside `data`.
-  total = computed(() => {
-    const raw = this.patientsResource.value() as any;
-    return (raw?.items ?? this.patients().length) as number;
-  })
+  readonly isLoading = computed(() => this.patientsResource.isLoading());
+  readonly error = computed(() => this.patientsResource.error());
+  reload() {
+    this.patientsResource.reload();
+  }
 
   private _deleted = signal<Set<string>>(new Set());
   visiblePatients = computed(() =>
-    this.patients().filter(p => !this._deleted().has(p.id))
+    this.patients().filter(p => !this._deleted().has(p.id)),
   );
 
-  remove(id: string){
+  remove(id: string) {
     this._deleted.update(s => new Set(s).add(id));
-    this.http.delete(`${API}/patients/${id}`).subscribe({
-        next: () => this.patientsResource.reload(),
-        error: () => this._deleted.update(s => {
+    this.supabase
+      .from('patients')
+      .delete()
+      .eq('id', id)
+      .then(({ error }: { error: unknown }) => {
+        if (error) {
+          this._deleted.update(s => {
             const next = new Set(s);
             next.delete(id);
             return next;
-        }),
-    });
+          });
+        } else {
+          this.patientsResource.reload();
+        }
+      });
   }
 }

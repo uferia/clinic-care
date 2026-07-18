@@ -1,11 +1,15 @@
-import { HttpClient, httpResource } from '@angular/common/http';
-import { computed, inject, Service, signal } from '@angular/core';
-import { Doctor } from './doctor.model';
-import { API } from '../../core/api';
+import { computed, inject, resource, Service, signal } from '@angular/core';
+import { Doctor, toDoctor } from './doctor.model';
+import { SUPABASE } from '../../core/supabase.client';
+
+/** Escape PostgREST `or()` separators so a typed comma/paren can't break the filter. */
+function escapeIlike(term: string): string {
+  return term.replace(/[,()]/g, ' ').trim();
+}
 
 @Service()
 export class DoctorStore {
-  private http = inject(HttpClient);
+  private supabase = inject(SUPABASE);
 
   readonly pageSize = 6;
 
@@ -44,39 +48,40 @@ export class DoctorStore {
     this._page.set(p);
   }
 
-  doctorsResource = httpResource<Doctor[]>(() => {
-    const params = new URLSearchParams({
-      _page: String(this._page()),
-      _per_page: String(this.pageSize),
-    });
+  private doctorsResource = resource({
+    params: () => ({
+      page: this._page(),
+      search: this._search().trim(),
+      specialty: this._specialty(),
+      availableOnly: this._availableOnly(),
+    }),
+    loader: async ({ params }) => {
+      let query = this.supabase.from('doctors').select('*', { count: 'exact' });
 
-    // json-server v1 `_where`: sibling keys are ANDed implicitly — there is no
-    // `and` operator. `or` is the one special key and may sit alongside them.
-    const where: Record<string, unknown> = {};
-    const q = this._search().trim();
-    if (q) {
-      where['or'] = [
-        { name: { contains: q } },
-        { specialty: { contains: q } },
-      ];
-    }
-    if (this._specialty()) where['specialty'] = { eq: this._specialty() };
-    if (this._availableOnly()) where['available'] = { eq: true };
+      if (params.search) {
+        const q = escapeIlike(params.search);
+        query = query.or(`name.ilike.%${q}%,specialty.ilike.%${q}%`);
+      }
+      if (params.specialty) query = query.eq('specialty', params.specialty);
+      if (params.availableOnly) query = query.eq('available', true);
 
-    if (Object.keys(where).length) params.set('_where', JSON.stringify(where));
+      const from = (params.page - 1) * this.pageSize;
+      query = query.range(from, from + this.pageSize - 1);
 
-    return `${API}/doctors?${params}`;
+      const { data, count, error } = await query;
+      if (error) throw error;
+      return { rows: (data ?? []).map(toDoctor), total: count ?? 0 };
+    },
   });
 
-  doctors = computed(() => {
-    const raw = this.doctorsResource.value() as any;
-    return (raw?.data ?? raw ?? []) as Doctor[];
-  });
+  doctors = computed<Doctor[]>(() => this.doctorsResource.value()?.rows ?? []);
+  total = computed(() => this.doctorsResource.value()?.total ?? 0);
 
-  total = computed(() => {
-    const raw = this.doctorsResource.value() as any;
-    return (raw?.items ?? this.doctors().length) as number;
-  });
+  readonly isLoading = computed(() => this.doctorsResource.isLoading());
+  readonly error = computed(() => this.doctorsResource.error());
+  reload() {
+    this.doctorsResource.reload();
+  }
 
   private _deleted = signal<Set<string>>(new Set());
   visibleDoctors = computed(() =>
@@ -85,21 +90,20 @@ export class DoctorStore {
 
   remove(id: string) {
     this._deleted.update(s => new Set(s).add(id));
-    this.http.delete(`${API}/doctors/${id}`).subscribe({
-      next: () => {
-        this.doctorsResource.reload();
-        this._deleted.update(s => {
-          const next = new Set(s);
-          next.delete(id);
-          return next;
-        });
-      },
-      error: () =>
-        this._deleted.update(s => {
-          const next = new Set(s);
-          next.delete(id);
-          return next;
-        }),
-    });
+    this.supabase
+      .from('doctors')
+      .delete()
+      .eq('id', id)
+      .then(({ error }: { error: unknown }) => {
+        if (error) {
+          this._deleted.update(s => {
+            const next = new Set(s);
+            next.delete(id);
+            return next;
+          });
+        } else {
+          this.doctorsResource.reload();
+        }
+      });
   }
 }

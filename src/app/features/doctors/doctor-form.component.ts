@@ -1,6 +1,5 @@
 import { Component, signal, effect, inject, input } from '@angular/core';
 import { form, FormField, required, min, max, validate } from '@angular/forms/signals';
-import { HttpClient } from '@angular/common/http';
 import { Router, RouterLink } from '@angular/router';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
@@ -10,8 +9,9 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatCardModule } from '@angular/material/card';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { CreateDoctorDto, Doctor, SPECIALTIES } from './doctor.model';
-import { API } from '../../core/api';
+import { CreateDoctorDto, SPECIALTIES, toDoctor, toDoctorWrite } from './doctor.model';
+import { SUPABASE } from '../../core/supabase.client';
+import { DoctorStore } from './doctor.store';
 
 @Component({
   selector: 'app-doctor-form',
@@ -156,8 +156,9 @@ import { API } from '../../core/api';
   `,
 })
 export class DoctorFormComponent {
-  private http = inject(HttpClient);
+  private supabase = inject(SUPABASE);
   private router = inject(Router);
+  private doctorStore = inject(DoctorStore);
 
   id = input<string>();
   saving = signal(false);
@@ -185,13 +186,20 @@ export class DoctorFormComponent {
   });
 
   constructor() {
+    // edit mode: load and patch the model signal
     effect(() => {
       const id = this.id();
-      if (id) {
-        this.http
-          .get<Doctor>(`${API}/doctors/${id}`)
-          .subscribe(({ id: _, ...dto }) => this.model.set(dto));
-      }
+      if (!id) return;
+      this.supabase
+        .from('doctors')
+        .select('*')
+        .eq('id', id)
+        .single()
+        .then(({ data, error }: { data: unknown; error: unknown }) => {
+          if (error || !data) return;
+          const d = toDoctor(data as any);
+          this.model.set({ name: d.name, specialty: d.specialty, rating: d.rating, available: d.available });
+        });
     });
   }
 
@@ -199,18 +207,20 @@ export class DoctorFormComponent {
     if (this.doctorForm().invalid()) return;
     this.saving.set(true);
     this.saveError.set(null);
-    const dto = this.model();
-    const req$ = this.id()
-      ? this.http.patch(`${API}/doctors/${this.id()}`, dto)
-      : this.http.post(`${API}/doctors`, dto);
-    req$.subscribe({
-      next: () => this.router.navigate(['/doctors']),
-      error: () => {
+    const dto: CreateDoctorDto = this.model();
+    const write = toDoctorWrite(dto);
+    const id = this.id();
+    const op = id
+      ? this.supabase.from('doctors').update(write).eq('id', id)
+      : this.supabase.from('doctors').insert(write);
+    op.then(({ error }: { error: unknown }) => {
+      if (error) {
         this.saving.set(false);
-        this.saveError.set(
-          "Couldn't save. Check the API is running and try again.",
-        );
-      },
+        this.saveError.set("Couldn't save. Please try again.");
+      } else {
+        this.doctorStore.reload();
+        this.router.navigate(['/doctors']);
+      }
     });
   }
 }
