@@ -15,6 +15,7 @@ import { fromIsoDate, toIsoDate } from '../../core/date.util';
 import { firstMessage } from '../../core/form-errors';
 import { SUPABASE } from '../../core/supabase.client';
 import { toPatient, toPatientWrite } from './patient.model';
+import { PatientStore } from './patient.store';
 
 /** Form-side model: `birthDate` is a real Date so the datepicker can bind to it. */
 interface PatientFormModel {
@@ -189,6 +190,7 @@ interface PatientFormModel {
 export class PatientFormComponent {
   private supabase = inject(SUPABASE);
   private router = inject(Router);
+  private patientStore = inject(PatientStore);
 
   id = input<string>();                    // route param via withComponentInputBinding
   saving = signal(false);
@@ -275,6 +277,7 @@ export class PatientFormComponent {
         this.saving.set(false);
         this.saveError.set("Couldn't save. Please try again.");
       } else {
+        this.patientStore.reload();
         this.router.navigate(['/patients']);
       }
     });

@@ -28,6 +28,7 @@ import {
   toIsoDate,
 } from '../../core/date.util';
 import { firstMessage } from '../../core/form-errors';
+import { AppointmentStore } from './appointment.store';
 
 /** Form-side model: date and time are Dates so the pickers can bind to them. */
 interface BookingFormModel {
@@ -223,6 +224,7 @@ interface BookingFormModel {
 export class AppointmentFormComponent {
   private supabase = inject(SUPABASE);
   private router = inject(Router);
+  private appointmentStore = inject(AppointmentStore);
 
   id = input<string>();
   saving = signal(false);
@@ -344,6 +346,7 @@ export class AppointmentFormComponent {
         this.saving.set(false);
         this.saveError.set("Couldn't save. Please try again.");
       } else {
+        this.appointmentStore.reload();
         this.router.navigate(['/appointments']);
       }
     });

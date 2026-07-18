@@ -11,6 +11,7 @@ import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { CreateDoctorDto, SPECIALTIES, toDoctor, toDoctorWrite } from './doctor.model';
 import { SUPABASE } from '../../core/supabase.client';
+import { DoctorStore } from './doctor.store';
 
 @Component({
   selector: 'app-doctor-form',
@@ -157,6 +158,7 @@ import { SUPABASE } from '../../core/supabase.client';
 export class DoctorFormComponent {
   private supabase = inject(SUPABASE);
   private router = inject(Router);
+  private doctorStore = inject(DoctorStore);
 
   id = input<string>();
   saving = signal(false);
@@ -216,6 +218,7 @@ export class DoctorFormComponent {
         this.saving.set(false);
         this.saveError.set("Couldn't save. Please try again.");
       } else {
+        this.doctorStore.reload();
         this.router.navigate(['/doctors']);
       }
     });
