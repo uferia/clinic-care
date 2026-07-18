@@ -15,8 +15,12 @@ export const appConfig: ApplicationConfig = {
     // Load the Supabase session and clinic context before the first route
     // activates so the guards can decide synchronously.
     provideAppInitializer(async () => {
-      await inject(AuthService).initialize();
-      await inject(ClinicContextService).load();
+      // inject() must run synchronously in the injection context — capture both
+      // BEFORE any await (an inject after await throws NG0203 and blanks the app).
+      const auth = inject(AuthService);
+      const clinic = inject(ClinicContextService);
+      await auth.initialize();
+      await clinic.load();
     }),
     provideRouter(routes, withComponentInputBinding()),
   ],
