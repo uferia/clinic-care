@@ -3,11 +3,12 @@ import { ClinicContextService } from './clinic-context.service';
 import { SUPABASE } from '../supabase.client';
 import { vi } from 'vitest';
 
-/** Minimal supabase stub: getUser + two table queries (memberships, subscriptions). */
+/** Minimal supabase stub: getUser + three table queries (memberships, subscriptions, super_admins). */
 function makeClient(opts: {
   userId?: string | null;
   membership?: { clinic_id: string; clinics: { name: string } } | null;
   subscription?: { status: string; trial_ends_at: string | null; active_until: string | null } | null;
+  superAdmin?: { user_id: string } | null;
 }) {
   const maybeSingle = (row: unknown) => ({
     eq: () => ({ maybeSingle: () => Promise.resolve({ data: row, error: null }) }),
@@ -15,7 +16,10 @@ function makeClient(opts: {
   return {
     auth: { getUser: vi.fn().mockResolvedValue({ data: { user: opts.userId ? { id: opts.userId } : null }, error: null }) },
     from: vi.fn((table: string) => ({
-      select: () => (table === 'memberships' ? maybeSingle(opts.membership ?? null) : maybeSingle(opts.subscription ?? null)),
+      select: () =>
+        table === 'memberships' ? maybeSingle(opts.membership ?? null)
+        : table === 'subscriptions' ? maybeSingle(opts.subscription ?? null)
+        : maybeSingle(opts.superAdmin ?? null),
     })),
   };
 }
@@ -69,5 +73,23 @@ describe('ClinicContextService', () => {
     }));
     await svc.load();
     expect(svc.isActive()).toBe(true);
+  });
+
+  it('flags a super-admin when a super_admins row exists', async () => {
+    const future = new Date(Date.now() + 5 * 86400_000).toISOString();
+    const svc = setup(makeClient({
+      userId: 'u1',
+      membership: { clinic_id: 'c1', clinics: { name: 'Demo Clinic' } },
+      subscription: { status: 'trialing', trial_ends_at: future, active_until: null },
+      superAdmin: { user_id: 'u1' },
+    }));
+    await svc.load();
+    expect(svc.isSuperAdmin()).toBe(true);
+  });
+
+  it('is not a super-admin without a super_admins row', async () => {
+    const svc = setup(makeClient({ userId: 'u1', membership: null, superAdmin: null }));
+    await svc.load();
+    expect(svc.isSuperAdmin()).toBe(false);
   });
 });

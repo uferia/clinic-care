@@ -79,6 +79,18 @@ Local backend runs on Supabase (Docker required):
 The provider is enabled in `config.toml` under `[auth.external.google]`; `site_url`
 and `additional_redirect_urls` are set to the app origin `http://localhost:4200`.
 
+### Admin area (super-admin)
+
+Privileged actions — create a clinic, bulk-add staff emails, activate/renew or
+expire a clinic's subscription — run as Supabase Edge Functions gated to
+super-admins (a row in the `super_admins` table). `npx supabase start` serves the
+functions in `supabase/functions/` automatically.
+
+A super-admin sees an **Admin** link in the toolbar (`/admin`): the clinics list +
+create form, and a per-clinic detail page to add members and set the subscription.
+Reads use RLS (super-admins can read every clinic/subscription/membership); writes
+go through the gated edge functions using the service-role key server-side.
+
 ## Additional Resources
 
 For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.

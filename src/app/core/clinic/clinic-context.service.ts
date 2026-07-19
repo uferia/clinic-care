@@ -15,6 +15,7 @@ export class ClinicContextService {
 
   readonly access = signal<ClinicAccess | null>(null);
   readonly ready = signal(false);
+  readonly isSuperAdmin = signal(false);
 
   readonly hasClinic = computed(() => this.access() !== null);
 
@@ -45,6 +46,12 @@ export class ClinicContextService {
         this.access.set(null);
         return;
       }
+      const { data: sa } = await this.supabase
+        .from('super_admins')
+        .select('user_id')
+        .eq('user_id', uid)
+        .maybeSingle();
+      this.isSuperAdmin.set(!!sa);
       const { data: membership } = await this.supabase
         .from('memberships')
         .select('clinic_id, clinics(name)')
@@ -70,6 +77,7 @@ export class ClinicContextService {
       });
     } catch {
       this.access.set(null);
+      this.isSuperAdmin.set(false);
     } finally {
       this.ready.set(true);
     }
@@ -77,5 +85,6 @@ export class ClinicContextService {
 
   clear(): void {
     this.access.set(null);
+    this.isSuperAdmin.set(false);
   }
 }
