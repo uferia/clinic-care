@@ -1,6 +1,7 @@
 import { Routes } from '@angular/router';
 import { authGuard } from './core/auth/auth.guard';
 import { accessGuard } from './core/auth/access.guard';
+import { superAdminGuard } from './core/auth/super-admin.guard';
 
 export const routes: Routes = [
   { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
@@ -52,6 +53,14 @@ export const routes: Routes = [
       { path: '', loadComponent: () => import('./features/appointments/appointment-list.component').then(m => m.AppointmentListComponent) },
       { path: 'new', loadComponent: () => import('./features/appointments/appointment-form.component').then(m => m.AppointmentFormComponent) },
       { path: ':id', loadComponent: () => import('./features/appointments/appointment-form.component').then(m => m.AppointmentFormComponent) },
+    ],
+  },
+  {
+    path: 'admin',
+    canActivate: [authGuard, superAdminGuard],
+    children: [
+      { path: '', loadComponent: () => import('./features/admin/admin-clinics.component').then(m => m.AdminClinicsComponent) },
+      { path: ':id', loadComponent: () => import('./features/admin/admin-clinic-detail.component').then(m => m.AdminClinicDetailComponent) },
     ],
   },
   { path: '**', redirectTo: 'dashboard' },
