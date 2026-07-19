@@ -266,6 +266,9 @@ export class PatientFormComponent {
       ...model,
       phone: toE164(model.phone),
       birthDate: model.birthDate ? toIsoDate(model.birthDate) : '',
+      allergies: '',
+      conditions: '',
+      medications: '',
     };
     const write = toPatientWrite(dto);
     const id = this.id();

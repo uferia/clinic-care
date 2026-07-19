@@ -21,6 +21,9 @@ export interface Patient {
   /** ISO date, `YYYY-MM-DD`. */
   birthDate: string;
   bloodType: BloodType;
+  allergies: string;
+  conditions: string;
+  medications: string;
   createdAt: string;
 }
 
@@ -38,6 +41,9 @@ export function toPatient(row: PatientRow): Patient {
     phone: row.phone ?? '',
     birthDate: row.birth_date ?? '',
     bloodType: (row.blood_type ?? 'O+') as BloodType,
+    allergies: row.allergies ?? '',
+    conditions: row.conditions ?? '',
+    medications: row.medications ?? '',
     createdAt: row.created_at,
   };
 }
@@ -50,5 +56,18 @@ export function toPatientWrite(dto: CreatePatientDto): Record<string, unknown> {
     phone: dto.phone,
     birth_date: dto.birthDate,
     blood_type: dto.bloodType,
+    allergies: dto.allergies,
+    conditions: dto.conditions,
+    medications: dto.medications,
   };
+}
+
+export interface MedicalBackground {
+  allergies: string;
+  conditions: string;
+  medications: string;
+}
+
+export function toMedicalWrite(m: MedicalBackground): Record<string, unknown> {
+  return { allergies: m.allergies, conditions: m.conditions, medications: m.medications };
 }
