@@ -1,5 +1,5 @@
 import { computed, inject, resource, Service, signal } from '@angular/core';
-import { Patient, toPatient } from './patient.model';
+import { Patient, toPatient, MedicalBackground, toMedicalWrite } from './patient.model';
 import { toPhoneSearchTerm } from './phone.util';
 import { SUPABASE } from '../../core/supabase.client';
 
@@ -88,5 +88,20 @@ export class PatientStore {
           this.patientsResource.reload();
         }
       });
+  }
+
+  async getById(id: string): Promise<Patient | null> {
+    const { data, error } = await this.supabase
+      .from('patients')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+    if (error) throw error;
+    return data ? toPatient(data) : null;
+  }
+
+  async saveMedical(id: string, m: MedicalBackground): Promise<void> {
+    const { error } = await this.supabase.from('patients').update(toMedicalWrite(m)).eq('id', id);
+    if (error) throw error;
   }
 }

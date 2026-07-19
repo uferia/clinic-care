@@ -10,6 +10,9 @@ export interface PatientRow {
   phone: string | null;
   birth_date: string | null;
   blood_type: string | null;
+  allergies: string | null;
+  conditions: string | null;
+  medications: string | null;
   created_at: string;
 }
 
@@ -37,4 +40,27 @@ export interface AppointmentRow {
 export interface AppointmentRowEmbedded extends AppointmentRow {
   patient: PatientRow | null;
   doctor: DoctorRow | null;
+}
+
+export interface ClinicalNoteRow {
+  id: string;
+  clinic_id: string;
+  patient_id: string;
+  author_id: string | null;
+  author_email: string | null;
+  visit_date: string;
+  body: string;
+  created_at: string;
+}
+
+export interface PatientDocumentRow {
+  id: string;
+  clinic_id: string;
+  patient_id: string;
+  object_path: string;
+  file_name: string;
+  content_type: string;
+  size_bytes: number;
+  uploaded_by: string | null;
+  created_at: string;
 }

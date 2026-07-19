@@ -34,7 +34,8 @@ export const routes: Routes = [
     children: [
       { path: '', loadComponent: () => import('./features/patients/patient-list.component').then(m => m.PatientListComponent) },
       { path: 'new', loadComponent: () => import('./features/patients/patient-form.component').then(m => m.PatientFormComponent) },
-      { path: ':id', loadComponent: () => import('./features/patients/patient-form.component').then(m => m.PatientFormComponent) },
+      { path: ':id/edit', loadComponent: () => import('./features/patients/patient-form.component').then(m => m.PatientFormComponent) },
+      { path: ':id', loadComponent: () => import('./features/patients/patient-detail.component').then(m => m.PatientDetailComponent) },
     ],
   },
   {
