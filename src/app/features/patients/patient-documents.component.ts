@@ -2,14 +2,13 @@ import { Component, inject, input, signal, effect } from '@angular/core';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { PatientDocumentsStore } from './patient-document.store';
 import { PatientDocument } from './patient-document.model';
 
 @Component({
   selector: 'app-patient-documents',
   providers: [PatientDocumentsStore],
-  imports: [MatCardModule, MatButtonModule, MatIconModule, MatProgressBarModule],
+  imports: [MatCardModule, MatButtonModule, MatIconModule],
   template: `
     <div class="bar">
       <button mat-flat-button [disabled]="busy()" (click)="picker.click()">
@@ -69,6 +68,7 @@ export class PatientDocumentsComponent {
   busy = signal(false);
   err = signal('');
   thumbs = signal<Record<string, string>>({});
+  private loadingThumbs = new Set<string>();
 
   constructor() {
     effect(() => {
@@ -78,9 +78,11 @@ export class PatientDocumentsComponent {
     effect(() => {
       const docs = this.store.documents();
       for (const d of docs) {
-        if (d.isImage && !this.thumbs()[d.id]) {
-          this.store.downloadUrl(d).then(url =>
-            this.thumbs.update(t => ({ ...t, [d.id]: url })));
+        if (d.isImage && !this.thumbs()[d.id] && !this.loadingThumbs.has(d.id)) {
+          this.loadingThumbs.add(d.id);
+          this.store.downloadUrl(d)
+            .then(url => this.thumbs.update(t => ({ ...t, [d.id]: url })))
+            .catch(() => { this.loadingThumbs.delete(d.id); });
         }
       }
     });
