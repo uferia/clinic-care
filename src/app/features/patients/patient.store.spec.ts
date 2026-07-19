@@ -1,4 +1,5 @@
 import { TestBed } from '@angular/core/testing';
+import { vi } from 'vitest';
 import { PatientStore } from './patient.store';
 import { SUPABASE } from '../../core/supabase.client';
 import { fakeSupabaseSelect } from '../../../testing/fake-supabase';
@@ -34,5 +35,23 @@ describe('PatientStore', () => {
     const or = client.recorded.filters.find(f => f.method === 'or');
     expect(String(or?.args[0])).toContain('first_name.ilike.%mar%');
     expect(String(or?.args[0])).toContain('last_name.ilike.%mar%');
+  });
+
+  it('getById selects a single patient by id', async () => {
+    const single = { data: rows[0], error: null };
+    const client: any = {
+      from: () => ({ select: () => ({ eq: () => ({ maybeSingle: () => Promise.resolve(single) }) }) }),
+    };
+    const store = setup(client);
+    const p = await store.getById('p1');
+    expect(p?.firstName).toBe('Maria');
+  });
+
+  it('saveMedical updates the three medical columns', async () => {
+    const update = vi.fn(() => ({ eq: () => Promise.resolve({ error: null }) }));
+    const client: any = { from: vi.fn(() => ({ update })) };
+    const store = setup(client);
+    await store.saveMedical('p1', { allergies: 'a', conditions: 'c', medications: 'm' });
+    expect(update).toHaveBeenCalledWith({ allergies: 'a', conditions: 'c', medications: 'm' });
   });
 });

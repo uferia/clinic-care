@@ -209,6 +209,10 @@ export class PatientFormComponent {
     birthDate: null, bloodType: 'O+',
   });
 
+  /** Medical background captured from the loaded patient on edit; preserved
+   *  through save() so this form never wipes it. Stays all-'' on create. */
+  private loadedMedical = { allergies: '', conditions: '', medications: '' };
+
   // 2. validation lives in a schema function — declarative, typed
   patientForm = form(this.model, (schema) => {
     required(schema.firstName, { message: 'First name is required' });
@@ -251,6 +255,7 @@ export class PatientFormComponent {
             firstName: p.firstName, lastName: p.lastName, email: p.email,
             phone: p.phone, birthDate: fromIsoDate(p.birthDate), bloodType: p.bloodType,
           });
+          this.loadedMedical = { allergies: p.allergies, conditions: p.conditions, medications: p.medications };
         });
     });
   }
@@ -266,9 +271,9 @@ export class PatientFormComponent {
       ...model,
       phone: toE164(model.phone),
       birthDate: model.birthDate ? toIsoDate(model.birthDate) : '',
-      allergies: '',
-      conditions: '',
-      medications: '',
+      allergies: this.loadedMedical.allergies,
+      conditions: this.loadedMedical.conditions,
+      medications: this.loadedMedical.medications,
     };
     const write = toPatientWrite(dto);
     const id = this.id();
