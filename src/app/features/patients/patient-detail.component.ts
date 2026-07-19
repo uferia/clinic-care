@@ -118,6 +118,9 @@ export class PatientDetailComponent {
         this.conditions = p?.conditions ?? '';
         this.medications = p?.medications ?? '';
         this.loading.set(false);
+      }).catch(() => {
+        this.patient.set(null);
+        this.loading.set(false);
       });
     });
   }
