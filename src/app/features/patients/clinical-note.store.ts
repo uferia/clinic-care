@@ -29,6 +29,10 @@ export class ClinicalNotesStore {
   readonly isLoading = computed(() => this.notesResource.isLoading());
   readonly error = computed(() => this.notesResource.error());
 
+  reload() {
+    this.notesResource.reload();
+  }
+
   async add(dto: CreateNoteDto): Promise<void> {
     const { error } = await this.supabase.from('patient_clinical_notes').insert(toNoteWrite(dto));
     if (error) throw error;

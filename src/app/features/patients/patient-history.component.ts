@@ -7,6 +7,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatListModule } from '@angular/material/list';
+import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { SUPABASE } from '../../core/supabase.client';
 import { AppointmentRowEmbedded } from '../../core/db.types';
 import { ClinicalNotesStore } from './clinical-note.store';
@@ -27,11 +28,25 @@ interface ApptView {
   imports: [
     FormsModule, MatCardModule, MatButtonModule, MatIconModule,
     MatFormFieldModule, MatInputModule, MatDatepickerModule, MatListModule,
+    MatProgressBarModule,
   ],
   template: `
     <section>
       <h2>Appointments</h2>
-      @if (appointments().length) {
+      @if (apptLoading()) {
+        <mat-progress-bar mode="indeterminate" />
+      }
+
+      @if (apptError()) {
+        <div class="state error-state">
+          <mat-icon>cloud_off</mat-icon>
+          <p>Failed to load appointments.</p>
+          <button mat-stroked-button (click)="loadAppointments(patientId())">
+            <mat-icon>refresh</mat-icon>
+            Retry
+          </button>
+        </div>
+      } @else if (appointments().length) {
         <mat-list>
           @for (a of appointments(); track a.id) {
             <mat-list-item>
@@ -65,20 +80,37 @@ interface ApptView {
         </mat-card-content>
       </mat-card>
 
-      @for (n of notes.notes(); track n.id) {
-        <mat-card appearance="outlined" class="note">
-          <mat-card-content>
-            <div class="note-head">
-              <strong>{{ n.visitDate }}</strong>
-              <span class="muted">{{ n.authorEmail }}</span>
-              <span class="spacer"></span>
-              <button mat-icon-button aria-label="Delete note" (click)="notes.remove(n.id)">
-                <mat-icon>delete_outline</mat-icon>
-              </button>
-            </div>
-            <p class="body">{{ n.body }}</p>
-          </mat-card-content>
-        </mat-card>
+      @if (notes.isLoading()) {
+        <mat-progress-bar mode="indeterminate" />
+      }
+
+      @if (notes.error()) {
+        <div class="state error-state">
+          <mat-icon>cloud_off</mat-icon>
+          <p>Failed to load notes.</p>
+          <button mat-stroked-button (click)="notes.reload()">
+            <mat-icon>refresh</mat-icon>
+            Retry
+          </button>
+        </div>
+      } @else {
+        @for (n of notes.notes(); track n.id) {
+          <mat-card appearance="outlined" class="note">
+            <mat-card-content>
+              <div class="note-head">
+                <strong>{{ n.visitDate }}</strong>
+                <span class="muted">{{ n.authorEmail }}</span>
+                <span class="spacer"></span>
+                <button mat-icon-button aria-label="Delete note" (click)="notes.remove(n.id)">
+                  <mat-icon>delete_outline</mat-icon>
+                </button>
+              </div>
+              <p class="body">{{ n.body }}</p>
+            </mat-card-content>
+          </mat-card>
+        } @empty {
+          <p class="muted">No notes yet.</p>
+        }
       }
     </section>
   `,
@@ -101,6 +133,8 @@ export class PatientHistoryComponent {
   patientId = input.required<string>();
 
   appointments = signal<ApptView[]>([]);
+  apptLoading = signal(false);
+  apptError = signal(false);
   visitDate: Date | null = new Date();
   body = '';
 
@@ -112,17 +146,27 @@ export class PatientHistoryComponent {
     });
   }
 
-  private async loadAppointments(patientId: string) {
-    const { data } = await this.supabase
-      .from('appointments')
-      .select('*, doctor:doctors(name)')
-      .eq('patient_id', patientId)
-      .order('date', { ascending: false });
-    const rows = (data as (AppointmentRowEmbedded & { doctor: { name: string } | null })[]) ?? [];
-    this.appointments.set(rows.map(r => ({
-      id: r.id, date: r.date, time: r.time,
-      doctor: r.doctor?.name ?? '—', reason: r.reason ?? '', status: r.status,
-    })));
+  async loadAppointments(patientId: string) {
+    this.apptLoading.set(true);
+    try {
+      const { data, error } = await this.supabase
+        .from('appointments')
+        .select('*, doctor:doctors(name)')
+        .eq('patient_id', patientId)
+        .order('date', { ascending: false });
+      if (error) {
+        this.apptError.set(true);
+        return;
+      }
+      this.apptError.set(false);
+      const rows = (data as (AppointmentRowEmbedded & { doctor: { name: string } | null })[]) ?? [];
+      this.appointments.set(rows.map(r => ({
+        id: r.id, date: r.date, time: r.time,
+        doctor: r.doctor?.name ?? '—', reason: r.reason ?? '', status: r.status,
+      })));
+    } finally {
+      this.apptLoading.set(false);
+    }
   }
 
   async addNote() {
@@ -136,6 +180,7 @@ export class PatientHistoryComponent {
       body,
       authorEmail: user?.email ?? '',
     });
+    this.visitDate = new Date();
     this.body = '';
   }
 }
