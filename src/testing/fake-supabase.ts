@@ -15,7 +15,7 @@ export function fakeSupabaseSelect(rows: unknown[], count = rows.length, error: 
     // thenable so `await query` resolves to the result
     then: (resolve: (v: unknown) => void) => resolve(result),
   };
-  for (const m of ['or', 'eq', 'ilike', 'order', 'range', 'gte', 'lte', 'lt', 'in']) {
+  for (const m of ['or', 'eq', 'ilike', 'order', 'range', 'gte', 'gt', 'lte', 'lt', 'in']) {
     builder[m] = vi.fn((...args: unknown[]) => {
       recorded.filters.push({ method: m, args });
       return builder;
@@ -84,7 +84,7 @@ export function fakeSupabaseMutate(
   const selectBuilder: any = {
     then: (resolve: (v: unknown) => void) => resolve(selectResult),
   };
-  for (const m of ['or', 'eq', 'ilike', 'order', 'range', 'gte', 'lte', 'lt', 'in']) {
+  for (const m of ['or', 'eq', 'ilike', 'order', 'range', 'gte', 'gt', 'lte', 'lt', 'in']) {
     selectBuilder[m] = vi.fn((...args: unknown[]) => {
       recorded.filters.push({ method: m, args });
       return selectBuilder;

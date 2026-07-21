@@ -97,7 +97,8 @@ export class ReportsStore {
       const { data, error } = await this.supabase
         .from('invoice_balances')
         .select('id, number, balance, status, patient:patients(first_name, last_name)')
-        .in('status', ['unpaid', 'partial']);
+        .in('status', ['unpaid', 'partial'])
+        .gt('balance', 0);
       if (error) throw error;
       return (data ?? []).map((r: any): OutstandingRow => ({
         id: r.id,
