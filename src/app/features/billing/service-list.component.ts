@@ -41,6 +41,11 @@ import { Service } from './billing.model';
           <mat-label>Price</mat-label>
           <input matInput type="number" min="0" step="0.01" [(ngModel)]="draftPrice" />
         </mat-form-field>
+        <mat-form-field appearance="outline" subscriptSizing="dynamic" class="grow description">
+          <mat-label>Description</mat-label>
+          <input matInput [(ngModel)]="draftDescription" placeholder="Standard 30-min visit" />
+        </mat-form-field>
+        <mat-slide-toggle [(ngModel)]="draftActive">Active</mat-slide-toggle>
         <button mat-flat-button [disabled]="!draftName().trim() || saving()" (click)="save()">
           <mat-icon>{{ editingId() ? 'save' : 'add' }}</mat-icon>
           {{ editingId() ? 'Update' : 'Add' }}
@@ -79,10 +84,10 @@ import { Service } from './billing.model';
         <ng-container matColumnDef="actions">
           <th mat-header-cell *matHeaderCellDef></th>
           <td mat-cell *matCellDef="let s" class="actions">
-            <button mat-icon-button (click)="edit(s)" aria-label="Edit service">
+            <button mat-icon-button [disabled]="saving()" (click)="edit(s)" aria-label="Edit service">
               <mat-icon>edit</mat-icon>
             </button>
-            <button mat-icon-button (click)="remove(s)" aria-label="Delete service">
+            <button mat-icon-button [disabled]="saving()" (click)="remove(s)" aria-label="Delete service">
               <mat-icon>delete_outline</mat-icon>
             </button>
           </td>
@@ -102,6 +107,7 @@ import { Service } from './billing.model';
     .row { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
     .grow { flex: 1 1 16rem; }
     .price { flex: 0 1 9rem; }
+    .description { flex: 1 1 100%; }
     table { width: 100%; }
     .actions { text-align: right; white-space: nowrap; }
     .state { display: grid; place-items: center; gap: 0.5rem; padding: 2rem; }
@@ -114,7 +120,9 @@ export class ServiceListComponent {
   cols = ['name', 'price', 'active', 'actions'];
 
   draftName = signal('');
+  draftDescription = signal('');
   draftPrice = signal<number>(0);
+  draftActive = signal(true);
   editingId = signal<string | null>(null);
   saving = signal(false);
   err = signal('');
@@ -122,13 +130,17 @@ export class ServiceListComponent {
   edit(s: Service) {
     this.editingId.set(s.id);
     this.draftName.set(s.name);
+    this.draftDescription.set(s.description);
     this.draftPrice.set(s.price);
+    this.draftActive.set(s.active);
   }
 
   resetDraft() {
     this.editingId.set(null);
     this.draftName.set('');
+    this.draftDescription.set('');
     this.draftPrice.set(0);
+    this.draftActive.set(true);
   }
 
   async save() {
@@ -136,9 +148,9 @@ export class ServiceListComponent {
     this.err.set('');
     const dto = {
       name: this.draftName().trim(),
-      description: '',
+      description: this.draftDescription().trim(),
       price: Number(this.draftPrice()) || 0,
-      active: true,
+      active: this.draftActive(),
     };
     try {
       const id = this.editingId();
