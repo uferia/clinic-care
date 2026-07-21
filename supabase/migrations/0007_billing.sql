@@ -44,7 +44,10 @@ create table public.invoices (
   notes          text,
   voided         boolean not null default false,
   created_by     uuid references auth.users (id) on delete set null,
-  created_at     timestamptz not null default now()
+  created_at     timestamptz not null default now(),
+  constraint invoices_discount_value_nonneg check (discount_value >= 0),
+  constraint invoices_discount_percent_bounded
+    check (discount_type <> 'percent' or discount_value <= 100)
 );
 create index invoices_clinic_id_idx  on public.invoices (clinic_id);
 create index invoices_patient_id_idx on public.invoices (patient_id);
@@ -119,6 +122,27 @@ $$;
 create trigger invoices_before_insert_trg
   before insert on public.invoices
   for each row execute function public.invoices_before_insert();
+
+-- Payments are the cash-basis record; an invoice with payments must be voided, never deleted
+-- (payments.invoice_id is on delete cascade, and authenticated can delete invoices under the
+-- tenant policy below, so without this guard a hard delete silently destroys cash-received rows).
+create or replace function public.invoices_before_delete()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if exists (select 1 from public.payments where invoice_id = old.id) then
+    raise exception 'cannot delete invoice %: it has payment records; void it instead', old.id;
+  end if;
+  return old;
+end;
+$$;
+
+create trigger invoices_before_delete_trg
+  before delete on public.invoices
+  for each row execute function public.invoices_before_delete();
 
 -- Derived balances/status. security_invoker => base-table RLS applies.
 create view public.invoice_balances with (security_invoker = true) as
