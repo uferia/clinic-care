@@ -64,3 +64,70 @@ export interface PatientDocumentRow {
   uploaded_by: string | null;
   created_at: string;
 }
+
+export interface ServiceRow {
+  id: string;
+  clinic_id: string;
+  name: string;
+  description: string | null;
+  price: number | string;
+  active: boolean;
+  created_at: string;
+}
+
+export interface InvoiceRow {
+  id: string;
+  clinic_id: string;
+  patient_id: string;
+  appointment_id: string | null;
+  number: string | null;
+  issue_date: string;
+  discount_type: 'amount' | 'percent' | null;
+  discount_value: number | string;
+  tax_rate: number | string;
+  notes: string | null;
+  voided: boolean;
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface InvoiceItemRow {
+  id: string;
+  clinic_id: string;
+  invoice_id: string;
+  service_id: string | null;
+  description: string;
+  unit_price: number | string;
+  quantity: number | string;
+}
+
+export interface PaymentRow {
+  id: string;
+  clinic_id: string;
+  invoice_id: string;
+  kind: 'payment' | 'refund';
+  amount: number | string;
+  paid_at: string;
+  note: string | null;
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface InvoiceBalanceRow extends InvoiceRow {
+  subtotal: number | string;
+  discount: number | string;
+  tax: number | string;
+  total: number | string;
+  paid: number | string;
+  balance: number | string;
+  status: 'unpaid' | 'partial' | 'paid' | 'void';
+}
+
+export interface BillingSettingsRow {
+  clinic_id: string;
+  currency: string;
+  tax_rate: number | string;
+  tax_label: string;
+  updated_at: string;
+  updated_by: string | null;
+}
