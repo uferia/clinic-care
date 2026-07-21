@@ -60,10 +60,19 @@ export interface RecordedMutation {
  * (`insert`, `update`, `delete`) is captured into `recorded.mutations` in call
  * order, and each returns a thenable builder supporting `.eq(...)` filters
  * that resolves to `{ data: mutationResult.data, error: mutationResult.error }`.
+ *
+ * `perTableResults` (optional, additive) lets a single client return a
+ * *different* mutation outcome for specific tables/operations instead of the
+ * one global `mutationResult` — e.g. to simulate "invoice insert succeeds,
+ * item insert fails". Keys are looked up as `"<table>:<operation>"` first,
+ * then `"<table>"`, falling back to `mutationResult` when neither matches.
+ * Omitting this parameter reproduces the exact prior behaviour (every
+ * mutation call, on every table, resolves to `mutationResult`).
  */
 export function fakeSupabaseMutate(
   selectRows: unknown[] = [],
   mutationResult: { data?: unknown; error?: unknown } = { data: null, error: null },
+  perTableResults?: Record<string, { data?: unknown; error?: unknown }>,
 ) {
   const recorded: { table: string; select?: string; filters: { method: string; args: unknown[] }[]; mutations: RecordedMutation[] } = {
     table: '',
@@ -88,10 +97,17 @@ export function fakeSupabaseMutate(
   selectBuilder.maybeSingle = vi.fn(() => selectSingleResult(true));
   selectBuilder.single = vi.fn(() => selectSingleResult(false));
 
+  function resultFor(table: string, operation: string) {
+    return (
+      perTableResults?.[`${table}:${operation}`] ?? perTableResults?.[table] ?? mutationResult
+    );
+  }
+
   function makeMutationBuilder(mutation: RecordedMutation) {
+    const result = resultFor(mutation.table, mutation.operation);
     const mutationBuilder: any = {
       then: (resolve: (v: unknown) => void) =>
-        resolve({ data: mutationResult.data ?? null, error: mutationResult.error ?? null }),
+        resolve({ data: result.data ?? null, error: result.error ?? null }),
     };
     mutationBuilder.eq = vi.fn((...args: unknown[]) => {
       mutation.filters.push({ method: 'eq', args });
@@ -106,7 +122,7 @@ export function fakeSupabaseMutate(
     });
     mutationBuilder.single = vi.fn(() => ({
       then: (resolve: (v: unknown) => void) =>
-        resolve({ data: mutationResult.data ?? null, error: mutationResult.error ?? null }),
+        resolve({ data: result.data ?? null, error: result.error ?? null }),
     }));
     return mutationBuilder;
   }

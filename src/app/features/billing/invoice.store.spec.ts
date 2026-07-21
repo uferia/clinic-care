@@ -100,10 +100,18 @@ describe('InvoiceStore', () => {
     const invMutation = client.recorded.mutations[0];
     expect(invMutation.table).toBe('invoices');
     expect(invMutation.operation).toBe('insert');
-    const invKeys = Object.keys(invMutation.payload as object);
-    expect(invKeys).not.toContain('clinic_id');
-    expect(invKeys).not.toContain('number');
-    expect(invKeys).not.toContain('id');
+    // Exact shape match (not just `.not.toContain(...)`): any stray key —
+    // including a client-supplied `clinic_id`, `number`, or `id`, which are
+    // assigned by DB triggers and must never appear — fails this assertion.
+    expect(invMutation.payload).toEqual({
+      patient_id: 'p1',
+      appointment_id: null,
+      issue_date: '2026-07-19',
+      discount_type: null,
+      discount_value: 0,
+      tax_rate: 12,
+      notes: '',
+    });
 
     const itemMutation = client.recorded.mutations[1];
     expect(itemMutation.table).toBe('invoice_items');
@@ -128,6 +136,40 @@ describe('InvoiceStore', () => {
     expect(id).toBe('new-inv');
     expect(client.recorded.mutations.length).toBe(1);
     expect(client.recorded.mutations[0].table).toBe('invoices');
+  });
+
+  it('create(dto, items) deletes the orphaned invoice and rethrows the ITEM error when the item insert fails', async () => {
+    const ITEM_ERROR = { message: 'item insert failed' };
+    const client = fakeSupabaseMutate(
+      [],
+      { data: { id: 'new-inv' }, error: null },
+      { invoice_items: { data: null, error: ITEM_ERROR } },
+    );
+    const store = setup(client);
+    await new Promise(r => setTimeout(r));
+
+    const dto: CreateInvoiceDto = {
+      patientId: 'p1', appointmentId: null, issueDate: '2026-07-19',
+      discountType: null, discountValue: 0, taxRate: 12, notes: '',
+    };
+    const items: CreateInvoiceItemDto[] = [
+      { serviceId: 's1', description: 'Consult', unitPrice: 500, quantity: 2 },
+    ];
+
+    // (a) the caller sees the ORIGINAL item-insert error, not some other error.
+    await expect(store.create(dto, items)).rejects.toBe(ITEM_ERROR);
+
+    // (b) a compensating delete was issued against `invoices`, filtered by the
+    // new invoice's id, so the failed create doesn't leave a numbered ghost.
+    expect(client.recorded.mutations.length).toBe(3);
+    expect(client.recorded.mutations[0].table).toBe('invoices');
+    expect(client.recorded.mutations[0].operation).toBe('insert');
+    expect(client.recorded.mutations[1].table).toBe('invoice_items');
+    expect(client.recorded.mutations[1].operation).toBe('insert');
+    const deleteMutation = client.recorded.mutations[2];
+    expect(deleteMutation.table).toBe('invoices');
+    expect(deleteMutation.operation).toBe('delete');
+    expect(deleteMutation.filters).toContainEqual({ method: 'eq', args: ['id', 'new-inv'] });
   });
 
   it('addPayment(dto) inserts into payments without a client-supplied clinic_id', async () => {

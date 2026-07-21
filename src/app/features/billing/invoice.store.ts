@@ -95,7 +95,17 @@ export class InvoiceStore {
     };
   }
 
-  /** Insert the invoice then its line items; returns the new invoice id. */
+  /**
+   * Insert the invoice then its line items; returns the new invoice id.
+   *
+   * NOTE: this is a best-effort compensation, not a transaction. The two
+   * inserts below are separate round trips with no shared atomicity — if the
+   * process dies between them there is nothing this client can do. The
+   * durable fix is a server-side RPC that performs both inserts in a single
+   * DB transaction; until that exists, we compensate for the one failure
+   * mode we *can* detect (the item insert rejecting) by deleting the invoice
+   * we just created.
+   */
   async create(dto: CreateInvoiceDto, items: CreateInvoiceItemDto[]): Promise<string> {
     const { data, error } = await this.supabase
       .from('invoices').insert(toInvoiceWrite(dto)).select('id').single();
@@ -104,7 +114,28 @@ export class InvoiceStore {
     if (items.length) {
       const { error: e2 } = await this.supabase
         .from('invoice_items').insert(items.map(it => toItemWrite(id, it)));
-      if (e2) throw e2;
+      if (e2) {
+        // The invoice row above already committed and consumed a real,
+        // trigger-assigned `number` from `billing_counters` — that counter
+        // does not roll back, and that's accepted. Without cleanup this
+        // would leave a numbered "ghost" invoice (total 0, unpaid, no items)
+        // that no method on this store can ever populate or distinguish from
+        // a legitimate empty invoice. So: best-effort delete it before
+        // rethrowing. It was created moments ago and has no payments yet, so
+        // the `invoices_before_delete` guard trigger (which blocks deleting
+        // invoices with payment rows) won't stand in the way, and the delete
+        // cascades away any partially-inserted items.
+        try {
+          await this.supabase.from('invoices').delete().eq('id', id);
+        } catch {
+          // Swallow: a failure here is secondary and must not mask the
+          // original item-insert error (`e2`) thrown below — that's what the
+          // caller needs in order to know why create() failed. Worst case,
+          // the compensation didn't take and the ghost invoice remains,
+          // which is the same outcome as not attempting cleanup at all.
+        }
+        throw e2;
+      }
     }
     this.listResource.reload();
     return id;
