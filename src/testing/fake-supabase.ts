@@ -15,12 +15,18 @@ export function fakeSupabaseSelect(rows: unknown[], count = rows.length, error: 
     // thenable so `await query` resolves to the result
     then: (resolve: (v: unknown) => void) => resolve(result),
   };
-  for (const m of ['or', 'eq', 'ilike', 'order', 'range', 'gte', 'in']) {
+  for (const m of ['or', 'eq', 'ilike', 'order', 'range', 'gte', 'lte', 'in']) {
     builder[m] = vi.fn((...args: unknown[]) => {
       recorded.filters.push({ method: m, args });
       return builder;
     });
   }
+  const singleResult = (allowEmpty: boolean) => ({
+    then: (resolve: (v: unknown) => void) =>
+      resolve({ data: rows[0] ?? (allowEmpty ? null : undefined), count, error }),
+  });
+  builder.maybeSingle = vi.fn(() => singleResult(true));
+  builder.single = vi.fn(() => singleResult(false));
 
   const client = {
     from: vi.fn((table: string) => {
@@ -67,12 +73,18 @@ export function fakeSupabaseMutate(
   const selectBuilder: any = {
     then: (resolve: (v: unknown) => void) => resolve(selectResult),
   };
-  for (const m of ['or', 'eq', 'ilike', 'order', 'range', 'gte', 'in']) {
+  for (const m of ['or', 'eq', 'ilike', 'order', 'range', 'gte', 'lte', 'in']) {
     selectBuilder[m] = vi.fn((...args: unknown[]) => {
       recorded.filters.push({ method: m, args });
       return selectBuilder;
     });
   }
+  const selectSingleResult = (allowEmpty: boolean) => ({
+    then: (resolve: (v: unknown) => void) =>
+      resolve({ data: selectRows[0] ?? (allowEmpty ? null : undefined), count: selectRows.length, error: null }),
+  });
+  selectBuilder.maybeSingle = vi.fn(() => selectSingleResult(true));
+  selectBuilder.single = vi.fn(() => selectSingleResult(false));
 
   function makeMutationBuilder(mutation: RecordedMutation) {
     const mutationBuilder: any = {
