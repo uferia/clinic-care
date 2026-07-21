@@ -15,6 +15,8 @@
 - Row types live in `src/app/core/db.types.ts` (snake_case), never reach components; feature models expose camelCase + mappers.
 - Stores are `@Service()` (imported from `@angular/core`), inject `SUPABASE`, use `resource()` for reads, expose `isLoading`/`error` signals and a `reload()`.
 - Money columns are `numeric(12,2)`; percentages `numeric(5,2)`. PostgREST may serialize numeric as string — mappers coerce with `Number(...)`.
+- **Test command:** `npx ng test --watch=false`. The project has NO standalone vitest config — the runner is the `@angular/build:unit-test` builder (vitest under the hood, setup file `src/test-setup.ts`). `npx vitest run` does NOT work. The whole suite runs each time; when a step says "verify it fails", look for the new spec's failure inside the full-suite output (existing specs stay green — the pre-existing suite is 56 passing).
+- **Build command:** `npx ng build`.
 - Commits: author as the user only. Do NOT add a `Co-Authored-By: Claude` trailer (per project convention). Conventional Commit prefixes (`feat`/`test`/`chore`).
 - Rounding rule (must match between SQL view and the TS preview helper): `round(x, 2)` half-up per component: discount% and tax each rounded to 2dp independently, then `total = subtotal - discount + tax`.
 
@@ -390,7 +392,7 @@ describe('service mapping', () => {
 
 - [ ] **Step 3: Run test to verify it fails**
 
-Run: `npx vitest run src/app/features/billing/billing.model.spec.ts`
+Run: `npx ng test --watch=false`
 Expected: FAIL — cannot find module `./billing.model`.
 
 - [ ] **Step 4: Write the model**
@@ -458,7 +460,7 @@ export function toServiceWrite(dto: CreateServiceDto): Record<string, unknown> {
 
 - [ ] **Step 5: Run test to verify it passes**
 
-Run: `npx vitest run src/app/features/billing/billing.model.spec.ts`
+Run: `npx ng test --watch=false`
 Expected: PASS (2 tests).
 
 - [ ] **Step 6: Commit**
@@ -553,7 +555,7 @@ describe('balance + payment mapping', () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `npx vitest run src/app/features/billing/billing.model.spec.ts`
+Run: `npx ng test --watch=false`
 Expected: FAIL — `computeTotals` / `toInvoiceBalance` / `toPayment` not exported.
 
 - [ ] **Step 3: Append the models + helper**
@@ -778,7 +780,7 @@ export function computeTotals(
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `npx vitest run src/app/features/billing/billing.model.spec.ts`
+Run: `npx ng test --watch=false`
 Expected: PASS (all describe blocks green).
 
 - [ ] **Step 5: Commit**
@@ -841,7 +843,7 @@ describe('ServiceStore', () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `npx vitest run src/app/features/billing/service.store.spec.ts`
+Run: `npx ng test --watch=false`
 Expected: FAIL — cannot find module `./service.store`.
 
 - [ ] **Step 3: Write the store**
@@ -908,7 +910,7 @@ Note: `Service` from `@angular/core` is the DI decorator; it is aliased to `Inje
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `npx vitest run src/app/features/billing/service.store.spec.ts`
+Run: `npx ng test --watch=false`
 Expected: PASS (2 tests).
 
 - [ ] **Step 5: Commit**
@@ -1144,7 +1146,7 @@ describe('BillingSettingsStore', () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `npx vitest run src/app/features/billing/billing-settings.store.spec.ts`
+Run: `npx ng test --watch=false`
 Expected: FAIL — cannot find module `./billing-settings.store`.
 
 - [ ] **Step 3: Write the store**
@@ -1221,7 +1223,7 @@ Existing specs are untouched — they never call these methods. Tasks 7 and 11 d
 
 - [ ] **Step 5: Run test to verify it passes**
 
-Run: `npx vitest run src/app/features/billing/billing-settings.store.spec.ts`
+Run: `npx ng test --watch=false`
 Expected: PASS (2 tests).
 
 - [ ] **Step 6: Write the settings component**
@@ -1391,7 +1393,7 @@ describe('InvoiceStore', () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `npx vitest run src/app/features/billing/invoice.store.spec.ts`
+Run: `npx ng test --watch=false`
 Expected: FAIL — cannot find module `./invoice.store`.
 
 - [ ] **Step 3: Write the store**
@@ -1519,7 +1521,7 @@ export class InvoiceStore {
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `npx vitest run src/app/features/billing/invoice.store.spec.ts`
+Run: `npx ng test --watch=false`
 Expected: PASS (2 tests).
 
 - [ ] **Step 5: Commit**
@@ -2208,7 +2210,7 @@ describe('ReportsStore', () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `npx vitest run src/app/features/billing/reports.store.spec.ts`
+Run: `npx ng test --watch=false`
 Expected: FAIL — cannot find module `./reports.store`.
 
 - [ ] **Step 3: Write the store**
@@ -2302,7 +2304,7 @@ export class ReportsStore {
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `npx vitest run src/app/features/billing/reports.store.spec.ts`
+Run: `npx ng test --watch=false`
 Expected: PASS (1 test).
 
 - [ ] **Step 5: Write the reports component**
@@ -2466,7 +2468,7 @@ In `src/app/app.ts`, add to the `links` array (after appointments):
 
 - [ ] **Step 3: Verify build + full test suite**
 
-Run: `npx ng build && npx vitest run`
+Run: `npx ng build && npx ng test --watch=false`
 Expected: build succeeds; all vitest specs pass (including the new billing specs).
 
 - [ ] **Step 4: Verify the app renders (Playwright)**
