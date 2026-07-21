@@ -55,9 +55,27 @@ export function toServiceWrite(dto: CreateServiceDto): Record<string, unknown> {
 
 // ---- Money helpers ---------------------------------------------------------
 
-/** Round half-up to 2 decimals (matches Postgres `round(x, 2)`). */
+/**
+ * Round half-away-from-zero to 2 decimals (matches Postgres `round(x, 2)`
+ * for both positive and negative inputs).
+ */
 export function round2(x: number): number {
-  return Math.round(Number((x * 100).toPrecision(12))) / 100;
+  return Math.sign(x) * Math.round(Number((Math.abs(x) * 100).toPrecision(12))) / 100;
+}
+
+// `unit_price`/`quantity` on `invoice_items` and `amount` on `payments` are
+// all `numeric(12,2)` — the DB rounds any of these fields to 2 decimal
+// places on write. A value that is not already "2dp-clean" (e.g. 33.333, or
+// 10.005) would preview/be-accepted-by-the-UI one way here and be stored a
+// different way after the DB's silent rounding, so both the invoice form's
+// line items and the invoice detail page's payment amount must fail this
+// same check before either counts as recordable. Uses the same
+// `toPrecision(12)` float-noise-safe rounding approach as `round2` above, so
+// a value that is genuinely 2dp (e.g. 19.99) is never rejected due to
+// ordinary binary-float representation error. Shared here (rather than
+// duplicated per-component) so the two guards cannot drift apart.
+export function isTwoDpClean(n: number): boolean {
+  return Number.isFinite(n) && Number((n * 100).toPrecision(12)) % 1 === 0;
 }
 
 // ---- Invoice ---------------------------------------------------------------

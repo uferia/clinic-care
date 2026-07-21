@@ -10,7 +10,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatTableModule } from '@angular/material/table';
 import { InvoiceStore } from './invoice.store';
 import { BillingSettingsStore } from './billing-settings.store';
-import { computeTotals, Invoice, InvoiceItem, Payment, PaymentKind } from './billing.model';
+import { computeTotals, isTwoDpClean, Invoice, InvoiceItem, Payment, PaymentKind } from './billing.model';
 
 @Component({
   selector: 'app-invoice-detail',
@@ -163,10 +163,14 @@ export class InvoiceDetailComponent {
   // entry, so e.g. `0.001` would otherwise pass a plain `n > 0` check, reach
   // the store, get coerced to 0.00 by the `numeric(12,2)` column, and trip
   // the DB's `check (amount > 0)` as a raw Postgres error instead of just
-  // staying disabled.
+  // staying disabled. `isTwoDpClean` additionally rejects sub-cent-but-above-
+  // a-cent amounts like `10.005`, which would otherwise preview as one value
+  // and be silently stored as a different one after the DB's `numeric(12,2)`
+  // rounding — same shared helper the invoice form uses for line items, so
+  // the two guards cannot drift.
   canRecord = computed(() => {
     const n = Number(this.payAmount());
-    return Number.isFinite(n) && Math.round(n * 100) >= 1;
+    return Number.isFinite(n) && Math.round(n * 100) >= 1 && isTwoDpClean(n);
   });
 
   constructor() {

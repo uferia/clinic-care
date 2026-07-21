@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { toService, toServiceWrite, computeTotals, toInvoiceBalance, toPayment } from './billing.model';
+import {
+  toService,
+  toServiceWrite,
+  computeTotals,
+  toInvoiceBalance,
+  toPayment,
+  isTwoDpClean,
+} from './billing.model';
 import { ServiceRow, InvoiceBalanceRow, PaymentRow } from '../../core/db.types';
 
 const row: ServiceRow = {
@@ -82,6 +89,30 @@ describe('computeTotals', () => {
     ];
     const result = computeTotals(fractionalItems, null, 0, 0);
     expect(result.total).toBeCloseTo(19.2008, 4);
+  });
+});
+
+// `isTwoDpClean` is the shared guard used by both the invoice form's
+// line-item validation and the invoice detail page's `canRecord` payment
+// guard (previously duplicated between the two; now a single exported
+// helper so they cannot drift). Pins the review's concrete failure case:
+// a payment of 10.005 must not be recordable, because `payments.amount` is
+// `numeric(12,2)` and the DB would silently store it as 10.01 while the UI
+// showed 10.005 — a cent of divergence between what the user saw and what
+// was persisted.
+describe('isTwoDpClean', () => {
+  it('accepts values that are already clean to 2 decimal places', () => {
+    expect(isTwoDpClean(19.99)).toBe(true);
+    expect(isTwoDpClean(10)).toBe(true);
+    expect(isTwoDpClean(0)).toBe(true);
+  });
+
+  it('rejects a sub-cent amount, e.g. a payment of 10.005', () => {
+    expect(isTwoDpClean(10.005)).toBe(false);
+  });
+
+  it('rejects NaN', () => {
+    expect(isTwoDpClean(NaN)).toBe(false);
   });
 });
 

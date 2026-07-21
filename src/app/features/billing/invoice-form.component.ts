@@ -13,21 +13,15 @@ import { InvoiceStore } from './invoice.store';
 import { ServiceStore } from './service.store';
 import { BillingSettingsStore } from './billing-settings.store';
 import { PatientStore } from '../patients/patient.store';
-import { computeTotals, DISCOUNT_TYPES, DiscountType, CreateInvoiceItemDto } from './billing.model';
+import {
+  computeTotals,
+  DISCOUNT_TYPES,
+  DiscountType,
+  CreateInvoiceItemDto,
+  isTwoDpClean,
+} from './billing.model';
 
 interface DraftLine { serviceId: string | null; description: string; unitPrice: number; quantity: number; }
-
-// `invoice_items.unit_price` and `.quantity` are `numeric(12,2)` — the DB
-// rounds either field to 2 decimal places on write. A value that is not
-// already "2dp-clean" (e.g. 33.333, or 0.001) would preview one way here and
-// be stored a different way after the DB's silent rounding, so a line must
-// fail this check before it can count as savable. Uses the same
-// `toPrecision(12)` float-noise-safe rounding approach as `round2` in
-// billing.model.ts, so a value that is genuinely 2dp (e.g. 19.99) is never
-// rejected due to ordinary binary-float representation error.
-function isTwoDpClean(n: number): boolean {
-  return Number.isFinite(n) && Number((n * 100).toPrecision(12)) % 1 === 0;
-}
 
 @Component({
   selector: 'app-invoice-form',
@@ -122,6 +116,7 @@ function isTwoDpClean(n: number): boolean {
             <input matInput type="number" min="0" step="0.01" [(ngModel)]="discountValue" />
           </mat-form-field>
         </div>
+        @if (discountWarning()) { <p class="error">{{ discountWarning() }}</p> }
 
         <dl class="totals">
           <dt>Subtotal</dt><dd>{{ totals().subtotal | number: '1.2-2' }}</dd>
@@ -132,7 +127,7 @@ function isTwoDpClean(n: number): boolean {
 
         @if (err()) { <p class="error">{{ err() }}</p> }
         @if (saveBlockedReason()) {
-          <p class="error">
+          <p [class.error]="settings.error()" [class.muted]="!settings.error()">
             {{ saveBlockedReason() }}
             @if (settings.error()) {
               <button mat-button (click)="settings.reload()">Retry</button>
@@ -164,6 +159,7 @@ function isTwoDpClean(n: number): boolean {
     .totals .grand { font: var(--mat-sys-title-medium); }
     .actions { display: flex; justify-content: flex-end; }
     .error { color: var(--mat-sys-error); }
+    .muted { color: var(--mat-sys-on-surface-variant); }
   `,
 })
 export class InvoiceFormComponent {
@@ -224,9 +220,26 @@ export class InvoiceFormComponent {
     return `${label} will not be included on the invoice — add a description, a price of 0 or more, and a quantity of at least 0.01, both to 2 decimal places, to include ${pronoun}.`;
   });
 
-  totals = computed(() =>
-    computeTotals(this.savableLines(), this.discountType(), Number(this.discountValue()) || 0, this.settings.taxRate()),
-  );
+  // The DB's `invoices_discount_percent_bounded` check constraint caps a
+  // percent discount at 100 — a typed value above that (e.g. entering
+  // "percent / 150" style input) would otherwise render a negative discount
+  // and negative tax in the on-screen preview before the save fails with a
+  // raw Postgres constraint error. Surfaced via `discountWarning` below
+  // rather than rewritten here: the typed `discountValue` signal is left
+  // alone so the user's input isn't silently changed out from under them;
+  // only the *preview* computation clamps it.
+  discountWarning = computed(() => {
+    if (this.discountType() === 'percent' && (Number(this.discountValue()) || 0) > 100) {
+      return 'Percent discount cannot exceed 100 — reduce the value to create this invoice.';
+    }
+    return '';
+  });
+
+  totals = computed(() => {
+    const raw = Number(this.discountValue()) || 0;
+    const discountValue = this.discountType() === 'percent' ? Math.min(raw, 100) : raw;
+    return computeTotals(this.savableLines(), this.discountType(), discountValue, this.settings.taxRate());
+  });
 
   // Billing settings must have actually resolved before an invoice can be
   // created — `BillingSettingsStore.taxRate()` silently falls back to
@@ -237,7 +250,8 @@ export class InvoiceFormComponent {
   // preview/DB mismatch to ever flag it (preview and DB would both agree on
   // the wrong, zero-tax number).
   canSave = computed(() =>
-    !!this.patientId() && this.savableLines().length > 0 && !this.saving() && this.settings.resolved(),
+    !!this.patientId() && this.savableLines().length > 0 && !this.saving() &&
+    this.settings.resolved() && !this.discountWarning(),
   );
 
   // Explains a disabled Create-invoice button when the block is the settings
