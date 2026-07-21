@@ -656,7 +656,12 @@ export interface CreatePaymentDto {
 }
 
 // Mappers (read)
-export function toInvoice(row: InvoiceRow): Invoice {
+// NOTE: the parameter is `Omit<InvoiceRow, 'created_by'>`, not `InvoiceRow`.
+// `toInvoice` never reads `created_by`, and `toInvoiceBalance` passes it an
+// `InvoiceBalanceRow` — which models the view, and the view does not select
+// `created_by`. Widening the parameter to the columns actually read lets both
+// call sites typecheck honestly. Do not narrow it back to `InvoiceRow`.
+export function toInvoice(row: Omit<InvoiceRow, 'created_by'>): Invoice {
   return {
     id: row.id,
     clinicId: row.clinic_id,
