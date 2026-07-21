@@ -255,15 +255,22 @@ export interface Totals {
   total: number;
 }
 
+// The SQL view's `item_tot` CTE computes `sum(unit_price * quantity)` and
+// never rounds it — the raw sum flows unrounded into the discount
+// calculation and the final total. `quantity` is `numeric(12,2)`, so
+// fractional quantities are schema-legal and the unrounded sum can carry
+// more than 2 decimal places. To stay byte-for-byte consistent with the
+// view, the subtotal here is intentionally left unrounded. Only the
+// discount and tax are rounded (each independently, via `round2`), and
+// `total = subtotal - discount + tax` is computed from those rounded
+// values plus the unrounded subtotal, exactly as the view does.
 export function computeTotals(
   items: readonly { unitPrice: number; quantity: number }[],
   discountType: DiscountType | null,
   discountValue: number,
   taxRate: number,
 ): Totals {
-  const subtotal = round2(
-    items.reduce((sum, it) => sum + it.unitPrice * it.quantity, 0),
-  );
+  const subtotal = items.reduce((sum, it) => sum + it.unitPrice * it.quantity, 0);
   let discount = 0;
   if (discountType === 'amount') discount = Math.min(discountValue, subtotal);
   else if (discountType === 'percent') discount = round2((subtotal * discountValue) / 100);

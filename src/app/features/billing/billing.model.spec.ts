@@ -47,6 +47,29 @@ describe('computeTotals', () => {
       subtotal: 1000, discount: 1000, tax: 0, total: 0,
     });
   });
+
+  it('fractional quantities keep the subtotal unrounded, matching the SQL view', () => {
+    // 10.03 * 1.25 + 5.01 * 1.33 = 12.5375 + 6.6633 = 19.2008 (raw, unrounded).
+    // The view's item_tot CTE never rounds this sum, so an 'amount' discount
+    // just under the raw subtotal must cap to its own unrounded value, not to
+    // a pre-rounded 19.20.
+    const fractionalItems = [
+      { unitPrice: 10.03, quantity: 1.25 },
+      { unitPrice: 5.01, quantity: 1.33 },
+    ];
+    const result = computeTotals(fractionalItems, 'amount', 19.2005, 0);
+    expect(result.subtotal).toBeCloseTo(19.2008, 4);
+    expect(result.discount).toBeCloseTo(19.2005, 4);
+  });
+
+  it('rounds a half-cent tax up, matching Postgres round(numeric, 2)', () => {
+    // subtotal 50, taxRate 1.01 -> raw tax = 50 * 1.01 / 100 = 0.505 exactly,
+    // which must round up to 0.51 (round-half-up), not down to 0.50.
+    const flatItems = [{ unitPrice: 50, quantity: 1 }];
+    const result = computeTotals(flatItems, null, 0, 1.01);
+    expect(result.tax).toBeCloseTo(0.51, 4);
+    expect(result.total).toBeCloseTo(50.51, 4);
+  });
 });
 
 describe('balance + payment mapping', () => {
