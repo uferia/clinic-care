@@ -32,23 +32,43 @@ export class ReportsStore {
   // target (see tsconfig.app.json / angular.json — no
   // `@angular/platform-server` build), run on-site by clinic staff, so the
   // browser's local timezone is a reasonable stand-in for the clinic's
-  // timezone. `.toISOString()` then turns that local instant into an
-  // unambiguous UTC timestamp that Postgres interprets correctly
-  // regardless of session TZ.
-  private static dayBounds(day: string): { start: string; end: string } {
-    return {
-      start: new Date(`${day}T00:00:00`).toISOString(),
-      end: new Date(`${day}T23:59:59.999`).toISOString(),
-    };
+  // timezone (known limitation: there is no clinic-timezone column in the
+  // schema, so this breaks if clinic staff ever run this from a machine in
+  // a different timezone than the clinic). `.toISOString()` then turns
+  // that local instant into an unambiguous UTC timestamp that Postgres
+  // interprets correctly regardless of session TZ.
+  //
+  // The range is HALF-OPEN: [start of day, start of the FOLLOWING day).
+  // `payments.paid_at` is `timestamptz` with microsecond precision and
+  // defaults to `now()` (see supabase/migrations/0007_billing.sql) — an
+  // inclusive `<= 23:59:59.999` upper bound only excludes microseconds
+  // *above* `.999000`. A payment recorded at, say, 23:59:59.999742 local
+  // time would fail that day's upper bound AND the next day's `>=
+  // 00:00:00.000` lower bound, vanishing from every report rather than
+  // merely landing on the wrong day. `.lt('paid_at', nextStart)` has no
+  // such gap.
+  //
+  // `nextStart` is computed via the DATE COMPONENT (`d + 1`), not by adding
+  // 86_400_000 ms: the local-time `Date` constructor normalizes an
+  // out-of-range day (e.g. day 32 of a 31-day month, or Dec 32) into the
+  // correct following month/year, and it correctly accounts for a DST
+  // transition landing on this particular day — a flat 24h millisecond
+  // offset would land an hour off across a DST spring-forward/fall-back
+  // boundary.
+  private static dayBounds(day: string): { start: string; nextStart: string } {
+    const [y, m, d] = day.split('-').map(Number);
+    const start = new Date(y, m - 1, d, 0, 0, 0, 0);
+    const nextStart = new Date(y, m - 1, d + 1, 0, 0, 0, 0);
+    return { start: start.toISOString(), nextStart: nextStart.toISOString() };
   }
 
   // Day close: payments whose paid_at falls on the selected local day.
   private dayResource = resource({
     params: () => ({ day: this._day() }),
     loader: async ({ params }) => {
-      const { start, end } = ReportsStore.dayBounds(params.day);
+      const { start, nextStart } = ReportsStore.dayBounds(params.day);
       const { data, error } = await this.supabase
-        .from('payments').select('*').gte('paid_at', start).lte('paid_at', end);
+        .from('payments').select('*').gte('paid_at', start).lt('paid_at', nextStart);
       if (error) throw error;
       return (data ?? []).map(toPayment);
     },
@@ -56,14 +76,14 @@ export class ReportsStore {
 
   // Period revenue: net payments across [from, to] (same local-day boundary
   // reasoning as dayBounds above — start of `from`'s local day through the
-  // end of `to`'s local day).
+  // start of the day AFTER `to`'s local day, half-open).
   private periodResource = resource({
     params: () => ({ from: this._from(), to: this._to() }),
     loader: async ({ params }) => {
       const { start } = ReportsStore.dayBounds(params.from);
-      const { end } = ReportsStore.dayBounds(params.to);
+      const { nextStart } = ReportsStore.dayBounds(params.to);
       const { data, error } = await this.supabase
-        .from('payments').select('*').gte('paid_at', start).lte('paid_at', end);
+        .from('payments').select('*').gte('paid_at', start).lt('paid_at', nextStart);
       if (error) throw error;
       return (data ?? []).map(toPayment);
     },
