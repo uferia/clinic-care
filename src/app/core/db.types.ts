@@ -113,7 +113,8 @@ export interface PaymentRow {
   created_at: string;
 }
 
-export interface InvoiceBalanceRow extends InvoiceRow {
+/** Row from invoice_balances view, which omits created_by from the invoices table. */
+export interface InvoiceBalanceRow extends Omit<InvoiceRow, 'created_by'> {
   subtotal: number | string;
   discount: number | string;
   tax: number | string;
