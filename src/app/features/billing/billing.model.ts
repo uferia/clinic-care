@@ -57,7 +57,7 @@ export function toServiceWrite(dto: CreateServiceDto): Record<string, unknown> {
 
 /** Round half-up to 2 decimals (matches Postgres `round(x, 2)`). */
 export function round2(x: number): number {
-  return Math.round((x + Number.EPSILON) * 100) / 100;
+  return Math.round(Number((x * 100).toPrecision(12))) / 100;
 }
 
 // ---- Invoice ---------------------------------------------------------------

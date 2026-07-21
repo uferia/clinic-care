@@ -85,6 +85,99 @@ describe('computeTotals', () => {
   });
 });
 
+// ---- Independent parity check against the SQL view's rounding contract ----
+//
+// This does NOT call `round2` or `computeTotals`. It re-derives the same SQL
+// expressions (`round(subtotal * discount_value / 100, 2)`,
+// `round((subtotal - discount) * tax_rate / 100, 2)`) using a decimal-STRING
+// half-up rounding algorithm that never multiplies-then-rounds the way
+// `round2` does — so a regression in `round2`'s arithmetic approach (e.g.
+// reverting to `Number.EPSILON`) cannot also be baked into this reference,
+// which would make the test tautological.
+//
+// `refRoundHalfUp2` works off `toFixed(10)`'s fixed decimal string (accurate
+// to well beyond the 3rd decimal place for money-sized magnitudes) and
+// inspects the 3rd decimal digit directly to decide whether to carry — no
+// float multiply-and-round step at all.
+function refRoundHalfUp2(x: number): number {
+  const negative = x < 0;
+  const abs = Math.abs(x);
+  const fixed = abs.toFixed(10);
+  const dotIdx = fixed.indexOf('.');
+  const intPart = fixed.slice(0, dotIdx);
+  const frac = fixed.slice(dotIdx + 1);
+  const firstTwo = frac.slice(0, 2);
+  const thirdDigit = frac.charCodeAt(2) - 48;
+  let cents = parseInt(intPart, 10) * 100 + parseInt(firstTwo, 10);
+  if (thirdDigit >= 5) cents += 1;
+  const result = cents / 100;
+  return negative ? -result : result;
+}
+
+interface RefTotals { subtotal: number; discount: number; tax: number; total: number; }
+
+function refComputeTotals(
+  items: readonly { unitPrice: number; quantity: number }[],
+  discountType: 'amount' | 'percent' | null,
+  discountValue: number,
+  taxRate: number,
+): RefTotals {
+  const subtotal = items.reduce((sum, it) => sum + it.unitPrice * it.quantity, 0);
+  let discount = 0;
+  if (discountType === 'amount') discount = Math.min(discountValue, subtotal);
+  else if (discountType === 'percent') discount = refRoundHalfUp2((subtotal * discountValue) / 100);
+  const tax = refRoundHalfUp2(((subtotal - discount) * taxRate) / 100);
+  const total = subtotal - discount + tax;
+  return { subtotal, discount, tax, total };
+}
+
+describe('computeTotals parity vs. independent reference implementation', () => {
+  const subtotalCases = [21.35, 100, 33.33, 999.99, 0.5, 123.45, 7.77, 250.01, 1000];
+  const discountConfigs: { type: 'amount' | 'percent' | null; value: number }[] = [
+    { type: null, value: 0 },
+    { type: 'amount', value: 5 },
+    { type: 'percent', value: 10 },
+  ];
+  const taxRates = [5, 10, 15, 25];
+
+  const matrix: [number, 'amount' | 'percent' | null, number, number][] = [];
+  for (const subtotal of subtotalCases) {
+    for (const disc of discountConfigs) {
+      for (const rate of taxRates) {
+        matrix.push([subtotal, disc.type, disc.value, rate]);
+      }
+    }
+  }
+
+  it.each(matrix)(
+    'subtotal=%s discountType=%s discountValue=%s taxRate=%s matches independent reference',
+    (subtotal, discountType, discountValue, taxRate) => {
+      const items = [{ unitPrice: subtotal, quantity: 1 }];
+      const expected = refComputeTotals(items, discountType, discountValue, taxRate);
+      const actual = computeTotals(items, discountType, discountValue, taxRate);
+      expect(actual.subtotal).toBe(expected.subtotal);
+      expect(actual.discount).toBe(expected.discount);
+      expect(actual.tax).toBe(expected.tax);
+      expect(actual.total).toBe(expected.total);
+    },
+  );
+
+  // The concrete failure case from the review: 21.35 @ 10% tax, no discount.
+  // Raw tax = 21.35 * 10 / 100 = 2.135 exactly (a true half-cent). Postgres
+  // `round(2.135, 2)` rounds half-up to 2.14. The old `Number.EPSILON`
+  // implementation rounded this DOWN to 2.13 because float multiplication
+  // puts `2.135 * 100` at `213.49999999999997` — a gap far larger than
+  // `Number.EPSILON` (2.22e-16) can bridge.
+  it('21.35 @ 10% tax rounds the half-cent UP to 2.14, matching Postgres round()', () => {
+    const items = [{ unitPrice: 21.35, quantity: 1 }];
+    const result = computeTotals(items, null, 0, 10);
+    expect(result.tax).toBe(2.14);
+    // `total` is deliberately left unrounded (parity with the view's bare
+    // `subtotal - discount + tax`), so allow for ordinary binary-float noise.
+    expect(result.total).toBeCloseTo(23.49, 6);
+  });
+});
+
 describe('balance + payment mapping', () => {
   it('maps a balance row and coerces numerics', () => {
     const row = {
