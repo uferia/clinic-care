@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { BillingSettingsStore } from './billing-settings.store';
+import { BillingSettingsStore, DEFAULTS } from './billing-settings.store';
 import { SUPABASE } from '../../core/supabase.client';
 import { fakeSupabaseSelect } from '../../../testing/fake-supabase';
 
@@ -25,5 +25,14 @@ describe('BillingSettingsStore', () => {
     await new Promise(r => setTimeout(r));
     expect(store.settings().currency).toBe('PHP');
     expect(store.settings().taxRate).toBe(0);
+  });
+
+  it('falls back to defaults and does not throw when the load fails', async () => {
+    const client = fakeSupabaseSelect([], 0, { message: 'boom' });
+    const store = setup(client);
+    await new Promise(r => setTimeout(r));
+    expect(store.error()).toBeTruthy();
+    expect(() => store.settings()).not.toThrow();
+    expect(store.settings()).toEqual(DEFAULTS);
   });
 });
