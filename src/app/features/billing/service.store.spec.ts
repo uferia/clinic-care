@@ -53,15 +53,22 @@ describe('ServiceStore', () => {
     const store = setup(client);
     await new Promise(r => setTimeout(r));
 
+    // Simulates a caller that spread a full Service into the DTO, smuggling
+    // in a tenant id and a row id. toServiceWrite must strip both — the
+    // trigger assigns clinic_id server-side, and insert never carries an id.
     const dto: CreateServiceDto = { name: 'X-ray', description: 'Chest', price: 250, active: true };
-    await store.add(dto);
+    const dirty = { ...dto, clinicId: 'other-clinic', id: 'spoofed' } as CreateServiceDto;
+    await store.add(dirty);
 
     expect(client.recorded.mutations.length).toBe(1);
     const mutation = client.recorded.mutations[0];
     expect(mutation.table).toBe('services');
     expect(mutation.operation).toBe('insert');
     expect(mutation.payload).toEqual({ name: 'X-ray', description: 'Chest', price: 250, active: true });
-    expect(Object.keys(mutation.payload as object)).not.toContain('clinic_id');
+    const keys = Object.keys(mutation.payload as object);
+    expect(keys).not.toContain('clinic_id');
+    expect(keys).not.toContain('clinicId');
+    expect(keys).not.toContain('id');
   });
 
   it('update(id, dto) updates services filtered by id, without a client-supplied clinic_id', async () => {
@@ -69,15 +76,22 @@ describe('ServiceStore', () => {
     const store = setup(client);
     await new Promise(r => setTimeout(r));
 
+    // Same spoofed-DTO shape as the add() case: a caller could pass a full
+    // Service into update() too, and the write payload must still come out
+    // stripped to exactly the four editable fields.
     const dto: CreateServiceDto = { name: 'X-ray', description: 'Chest', price: 300, active: false };
-    await store.update('s1', dto);
+    const dirty = { ...dto, clinicId: 'other-clinic', id: 'spoofed' } as CreateServiceDto;
+    await store.update('s1', dirty);
 
     expect(client.recorded.mutations.length).toBe(1);
     const mutation = client.recorded.mutations[0];
     expect(mutation.table).toBe('services');
     expect(mutation.operation).toBe('update');
     expect(mutation.payload).toEqual({ name: 'X-ray', description: 'Chest', price: 300, active: false });
-    expect(Object.keys(mutation.payload as object)).not.toContain('clinic_id');
+    const keys = Object.keys(mutation.payload as object);
+    expect(keys).not.toContain('clinic_id');
+    expect(keys).not.toContain('clinicId');
+    expect(keys).not.toContain('id');
     expect(mutation.filters).toContainEqual({ method: 'eq', args: ['id', 's1'] });
   });
 
