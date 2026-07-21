@@ -27,13 +27,13 @@ import { computeTotals, Invoice, InvoiceItem, Payment, PaymentKind } from './bil
         <button mat-stroked-button (click)="reload()">Retry</button>
       </div>
     } @else if (invoice(); as inv) {
-      <header class="toolbar no-print">
-        <a mat-icon-button routerLink="/billing"><mat-icon>arrow_back</mat-icon></a>
+      <header class="toolbar">
+        <a mat-icon-button routerLink="/billing" class="no-print"><mat-icon>arrow_back</mat-icon></a>
         <h1>{{ inv.number }}</h1>
-        <span class="spacer"></span>
-        <button mat-stroked-button (click)="print()"><mat-icon>print</mat-icon> Print</button>
+        <span class="spacer no-print"></span>
+        <button mat-stroked-button (click)="print()" class="no-print"><mat-icon>print</mat-icon> Print</button>
         @if (!inv.voided) {
-          <button mat-stroked-button color="warn" [disabled]="busy()" (click)="voidInvoice(inv.id)">
+          <button mat-stroked-button color="warn" [disabled]="busy()" (click)="voidInvoice(inv.id)" class="no-print">
             <mat-icon>block</mat-icon> Void
           </button>
         }
