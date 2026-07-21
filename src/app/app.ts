@@ -30,6 +30,7 @@ export class App {
     { path: '/patients', label: 'Patients', icon: 'groups' },
     { path: '/doctors', label: 'Doctors', icon: 'medical_services' },
     { path: '/appointments', label: 'Appointments', icon: 'event' },
+    { path: '/billing', label: 'Billing', icon: 'receipt_long' },
   ];
 
   logout() {
