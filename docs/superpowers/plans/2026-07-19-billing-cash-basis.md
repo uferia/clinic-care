@@ -30,6 +30,13 @@
 **Interfaces:**
 - Produces (relied on by every later task): tables `services`, `invoices`, `invoice_items`, `payments`, `billing_settings`, `billing_counters`; view `invoice_balances` with columns `id, clinic_id, patient_id, appointment_id, number, issue_date, voided, discount_type, discount_value, tax_rate, notes, created_at, subtotal, discount, tax, total, paid, balance, status`.
 
+> **AMENDED AFTER REVIEW (commit `1a9aaac`).** The shipped `0007_billing.sql` also contains, by owner decision:
+> - a `before delete` trigger on `invoices` that raises if any `payments` row references it (an invoice with payments can only be voided; paymentless invoices stay deletable);
+> - CHECK constraints `discount_value >= 0` and `discount_type <> 'percent' or discount_value <= 100`.
+>
+> Confirmed intended, do NOT change: a zero-total invoice reports status `unpaid`. Explicitly declined: an over-refund guard — a refund exceeding cumulative payments is representable and makes `paid` negative.
+> The migration file is the source of truth; the SQL below is the pre-amendment version.
+
 - [ ] **Step 1: Write the migration**
 
 Create `supabase/migrations/0007_billing.sql`:
