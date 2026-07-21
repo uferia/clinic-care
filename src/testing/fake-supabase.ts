@@ -48,6 +48,8 @@ export interface RecordedMutation {
   operation: 'insert' | 'update' | 'delete';
   payload?: unknown;
   filters: { method: string; args: unknown[] }[];
+  /** Set when the chain calls `.select(...)` after the mutation (e.g. `.insert(...).select('id').single()`). */
+  select?: string;
 }
 
 /**
@@ -95,6 +97,17 @@ export function fakeSupabaseMutate(
       mutation.filters.push({ method: 'eq', args });
       return mutationBuilder;
     });
+    // `.insert(...).select('id').single()` — used by stores that need the
+    // inserted row back (e.g. a server-assigned id). Additive only: existing
+    // mutation chains (`.eq(...)` then implicit `then`) are unchanged.
+    mutationBuilder.select = vi.fn((sel: string) => {
+      mutation.select = sel;
+      return mutationBuilder;
+    });
+    mutationBuilder.single = vi.fn(() => ({
+      then: (resolve: (v: unknown) => void) =>
+        resolve({ data: mutationResult.data ?? null, error: mutationResult.error ?? null }),
+    }));
     return mutationBuilder;
   }
 
