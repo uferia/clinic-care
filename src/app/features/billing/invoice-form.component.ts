@@ -17,6 +17,18 @@ import { computeTotals, DISCOUNT_TYPES, DiscountType, CreateInvoiceItemDto } fro
 
 interface DraftLine { serviceId: string | null; description: string; unitPrice: number; quantity: number; }
 
+// `invoice_items.unit_price` and `.quantity` are `numeric(12,2)` — the DB
+// rounds either field to 2 decimal places on write. A value that is not
+// already "2dp-clean" (e.g. 33.333, or 0.001) would preview one way here and
+// be stored a different way after the DB's silent rounding, so a line must
+// fail this check before it can count as savable. Uses the same
+// `toPrecision(12)` float-noise-safe rounding approach as `round2` in
+// billing.model.ts, so a value that is genuinely 2dp (e.g. 19.99) is never
+// rejected due to ordinary binary-float representation error.
+function isTwoDpClean(n: number): boolean {
+  return Number.isFinite(n) && Number((n * 100).toPrecision(12)) % 1 === 0;
+}
+
 @Component({
   selector: 'app-invoice-form',
   imports: [
@@ -54,6 +66,12 @@ interface DraftLine { serviceId: string | null; description: string; unitPrice: 
     <mat-card appearance="outlined" class="card">
       <mat-card-content>
         <h2>Line items</h2>
+        @if (services.error()) {
+          <p class="error">
+            Could not load the service catalog — you can still add custom lines by hand.
+            <button mat-button (click)="services.reload()">Retry</button>
+          </p>
+        }
         @for (line of lines(); track $index) {
           <div class="line">
             <mat-form-field appearance="outline" subscriptSizing="dynamic" class="grow">
@@ -108,11 +126,19 @@ interface DraftLine { serviceId: string | null; description: string; unitPrice: 
         <dl class="totals">
           <dt>Subtotal</dt><dd>{{ totals().subtotal | number: '1.2-2' }}</dd>
           <dt>Discount</dt><dd>-{{ totals().discount | number: '1.2-2' }}</dd>
-          <dt>Tax ({{ settings.taxRate() }}%)</dt><dd>{{ totals().tax | number: '1.2-2' }}</dd>
+          <dt>{{ settings.settings().taxLabel }} ({{ settings.taxRate() }}%)</dt><dd>{{ totals().tax | number: '1.2-2' }}</dd>
           <dt class="grand">Total</dt><dd class="grand">{{ totals().total | number: '1.2-2' }}</dd>
         </dl>
 
         @if (err()) { <p class="error">{{ err() }}</p> }
+        @if (saveBlockedReason()) {
+          <p class="error">
+            {{ saveBlockedReason() }}
+            @if (settings.error()) {
+              <button mat-button (click)="settings.reload()">Retry</button>
+            }
+          </p>
+        }
 
         <div class="actions">
           <button mat-flat-button [disabled]="!canSave()" (click)="save()">
@@ -160,16 +186,26 @@ export class InvoiceFormComponent {
   lines = signal<DraftLine[]>([{ serviceId: null, description: '', unitPrice: 0, quantity: 1 }]);
 
   // The single source of truth for which lines are real: a non-empty
-  // description, a non-negative price, and a positive quantity. Everything
-  // that gets previewed, saved, or gates save-ability must derive from this
-  // same set so the previewed total and the saved invoice can never disagree.
+  // description, a non-negative 2dp-clean price, and a 2dp-clean quantity of
+  // at least one cent-equivalent (0.01) — the quantity check's shape
+  // (`Number.isFinite(n) && Math.round(n * 100) >= 1`) deliberately mirrors
+  // invoice-detail.component.ts's `canRecord` guard so the two cannot drift
+  // conceptually. Everything that gets previewed, saved, or gates
+  // save-ability must derive from this same set so the previewed total and
+  // the saved invoice (after the DB's numeric(12,2) rounding) can never
+  // disagree.
   savableLines = computed(() =>
-    this.lines().filter(l => l.description.trim() && l.unitPrice >= 0 && l.quantity > 0),
+    this.lines().filter(l =>
+      l.description.trim() !== '' &&
+      Number.isFinite(l.unitPrice) && l.unitPrice >= 0 && isTwoDpClean(l.unitPrice) &&
+      Number.isFinite(l.quantity) && Math.round(l.quantity * 100) >= 1 && isTwoDpClean(l.quantity),
+    ),
   );
 
   // Rows the user has clearly started (typed a description or entered a
   // price) but that don't qualify as savable — e.g. a description with
-  // quantity left at 0. These must not be silently dropped: surface them.
+  // quantity left at 0, or sub-cent price/quantity input. These must not be
+  // silently dropped: surface them.
   invalidLineNumbers = computed(() => {
     const savable = new Set(this.savableLines());
     const nums: number[] = [];
@@ -185,16 +221,33 @@ export class InvoiceFormComponent {
     if (!nums.length) return '';
     const label = nums.length === 1 ? `Line ${nums[0]}` : `Lines ${nums.join(', ')}`;
     const pronoun = nums.length === 1 ? 'it' : 'them';
-    return `${label} will not be included on the invoice — add a description, a price of 0 or more, and a quantity greater than 0 to include ${pronoun}.`;
+    return `${label} will not be included on the invoice — add a description, a price of 0 or more, and a quantity of at least 0.01, both to 2 decimal places, to include ${pronoun}.`;
   });
 
   totals = computed(() =>
     computeTotals(this.savableLines(), this.discountType(), Number(this.discountValue()) || 0, this.settings.taxRate()),
   );
 
+  // Billing settings must have actually resolved before an invoice can be
+  // created — `BillingSettingsStore.taxRate()` silently falls back to
+  // DEFAULTS (tax rate 0) whenever the settings resource lacks a value,
+  // INCLUDING the error state. Without this gate, a transient settings-load
+  // failure would produce an invoice permanently snapshotted at
+  // `tax_rate = 0` — under-billed by the entire tax amount, with no
+  // preview/DB mismatch to ever flag it (preview and DB would both agree on
+  // the wrong, zero-tax number).
   canSave = computed(() =>
-    !!this.patientId() && this.savableLines().length > 0 && !this.saving(),
+    !!this.patientId() && this.savableLines().length > 0 && !this.saving() && this.settings.resolved(),
   );
+
+  // Explains a disabled Create-invoice button when the block is the settings
+  // load rather than missing patient/lines — so the user can tell why they
+  // can't save instead of a mysteriously-disabled button.
+  saveBlockedReason = computed(() => {
+    if (this.settings.resolved()) return '';
+    if (this.settings.error()) return 'Billing settings failed to load — tax rate cannot be determined safely, so invoices cannot be created right now.';
+    return 'Loading billing settings…';
+  });
 
   onPatientSearch(q: string) { this.patientQuery.set(q); this.patients.setSearch(q); }
   pickPatient(p: { id: string; firstName: string; lastName: string }) {

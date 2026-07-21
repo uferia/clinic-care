@@ -24,7 +24,16 @@ export class ServiceStore {
     },
   });
 
-  services = computed<Service[]>(() => this.servicesResource.value() ?? []);
+  // `resource().value()` throws `ResourceValueError` once the resource has
+  // settled into the 'error' state (see @angular/core's ResourceImpl) —
+  // `?? []` does NOT protect against that, since the throw happens
+  // evaluating `.value()` itself, before `??` ever runs. `hasValue()` is
+  // safe to call in that state (it short-circuits on `isError()` before ever
+  // touching `.value()`). `BillingSettingsStore`, `InvoiceStore`, and
+  // `ReportsStore` all guard this way; mirror it here.
+  services = computed<Service[]>(() =>
+    this.servicesResource.hasValue() ? this.servicesResource.value() : [],
+  );
   activeServices = computed<Service[]>(() => this.services().filter(s => s.active));
   readonly isLoading = computed(() => this.servicesResource.isLoading());
   readonly error = computed(() => this.servicesResource.error());

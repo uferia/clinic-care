@@ -32,6 +32,15 @@ export class BillingSettingsStore {
   currency = computed(() => this.settings().currency);
   readonly isLoading = computed(() => this.settingsResource.isLoading());
   readonly error = computed(() => this.settingsResource.error());
+  // True once the resource has actually settled into a real value — either
+  // the clinic's saved settings, or DEFAULTS because no row exists yet (the
+  // loader itself returns DEFAULTS for that case, which IS a resolved value).
+  // False while still loading, and false in the 'error' state. Callers that
+  // must not snapshot `taxRate()` before it's trustworthy (e.g. creating an
+  // invoice, which would otherwise silently snapshot `tax_rate = 0` on a
+  // failed load) should gate on this rather than on `settings()` itself,
+  // since `settings()` always returns *something* even when unresolved.
+  readonly resolved = computed(() => this.settingsResource.hasValue());
 
   reload() {
     this.settingsResource.reload();
