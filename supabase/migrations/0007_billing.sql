@@ -231,5 +231,14 @@ grant select, insert, update, delete on public.billing_settings to authenticated
 grant select, insert, update, delete on public.services         to authenticated;
 grant select, insert, update, delete on public.invoices         to authenticated;
 grant select, insert, update, delete on public.invoice_items    to authenticated;
-grant select, insert, update, delete on public.payments         to authenticated;
+-- payments is the cash-basis record: intentionally NOT update/delete. Nothing
+-- in the app updates or deletes a payment row (void is the sanctioned
+-- reversal — verified by grep across src/app/features/billing), and
+-- `invoices_before_delete_trg` above only protects the *invoice* row from a
+-- hard delete when it has payments. Without this restriction, `DELETE
+-- /payments?invoice_id=eq.X` followed by deleting the invoice would bypass
+-- that trigger entirely, and `update` would let `amount`/`paid_at` be
+-- rewritten after the fact with no audit trail. select+insert is everything
+-- the app needs (list/detail/reports read; record payment/refund inserts).
+grant select, insert on public.payments to authenticated;
 grant select on public.invoice_balances to authenticated;
