@@ -78,7 +78,7 @@ import { computeTotals, Invoice, InvoiceItem, Payment, PaymentKind } from './bil
         </mat-card-content>
       </mat-card>
 
-      <mat-card appearance="outlined" class="card no-print">
+      <mat-card appearance="outlined" class="card">
         <mat-card-content>
           <h2>Payments</h2>
           @for (p of payments(); track p.id) {
@@ -91,7 +91,7 @@ import { computeTotals, Invoice, InvoiceItem, Payment, PaymentKind } from './bil
           } @empty { <p class="muted">No payments yet.</p> }
 
           @if (!inv.voided) {
-            <div class="add-pay">
+            <div class="add-pay no-print">
               <mat-form-field appearance="outline" subscriptSizing="dynamic" class="num">
                 <mat-label>Amount</mat-label>
                 <input matInput type="number" min="0" step="0.01" [(ngModel)]="payAmount" />
@@ -158,13 +158,15 @@ export class InvoiceDetailComponent {
     this.payments().reduce((s, p) => s + (p.kind === 'payment' ? p.amount : -p.amount), 0),
   );
 
-  // Guards against blank/NaN/zero/negative input from the `type="number"`
-  // field — the DB has `check (amount > 0)`, so anything that fails this
-  // would otherwise reach the store and surface as a raw Postgres error
-  // instead of just staying disabled.
+  // Guards against blank/NaN/zero/negative/sub-cent input from the
+  // `type="number"` field — `step` isn't enforced against direct keyboard
+  // entry, so e.g. `0.001` would otherwise pass a plain `n > 0` check, reach
+  // the store, get coerced to 0.00 by the `numeric(12,2)` column, and trip
+  // the DB's `check (amount > 0)` as a raw Postgres error instead of just
+  // staying disabled.
   canRecord = computed(() => {
     const n = Number(this.payAmount());
-    return Number.isFinite(n) && n > 0;
+    return Number.isFinite(n) && Math.round(n * 100) >= 1;
   });
 
   constructor() {
