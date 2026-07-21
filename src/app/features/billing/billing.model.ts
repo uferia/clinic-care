@@ -255,15 +255,22 @@ export interface Totals {
   total: number;
 }
 
-// The SQL view's `item_tot` CTE computes `sum(unit_price * quantity)` and
-// never rounds it — the raw sum flows unrounded into the discount
-// calculation and the final total. `quantity` is `numeric(12,2)`, so
-// fractional quantities are schema-legal and the unrounded sum can carry
-// more than 2 decimal places. To stay byte-for-byte consistent with the
-// view, the subtotal here is intentionally left unrounded. Only the
-// discount and tax are rounded (each independently, via `round2`), and
-// `total = subtotal - discount + tax` is computed from those rounded
-// values plus the unrounded subtotal, exactly as the view does.
+// Parity rule with the SQL view: only `discount` and `tax` are rounded to
+// 2 decimals (each independently, via `round2`); `subtotal` and `total` are
+// left unrounded, because the view rounds only those two fields.
+//
+// The view's `item_tot` CTE computes `sum(unit_price * quantity)` and never
+// rounds it — the raw sum flows unrounded into the discount calculation.
+// `quantity` is `numeric(12,2)`, so fractional quantities are schema-legal
+// and the unrounded sum can carry more than 2 decimal places. The view's
+// final select then computes `total = subtotal - discount + tax` with no
+// `round()` call around it either, so the total inherits the subtotal's
+// unrounded precision. To stay byte-for-byte consistent with the view,
+// neither `subtotal` nor `total` is rounded here. This means ordinary
+// binary-float noise (e.g. `1120.0000000000002`) can appear in `total` —
+// that is expected and matches the database; do not "fix" it with a
+// rounding or epsilon wrapper. Display formatting (e.g. Angular's
+// `| number` pipe) is responsible for presentation rounding.
 export function computeTotals(
   items: readonly { unitPrice: number; quantity: number }[],
   discountType: DiscountType | null,
@@ -275,6 +282,6 @@ export function computeTotals(
   if (discountType === 'amount') discount = Math.min(discountValue, subtotal);
   else if (discountType === 'percent') discount = round2((subtotal * discountValue) / 100);
   const tax = round2(((subtotal - discount) * taxRate) / 100);
-  const total = round2(subtotal - discount + tax);
+  const total = subtotal - discount + tax;
   return { subtotal, discount, tax, total };
 }

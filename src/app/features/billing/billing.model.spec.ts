@@ -70,6 +70,19 @@ describe('computeTotals', () => {
     expect(result.tax).toBeCloseTo(0.51, 4);
     expect(result.total).toBeCloseTo(50.51, 4);
   });
+
+  it('leaves the total unrounded, matching the SQL view\'s bare `subtotal - discount + tax`', () => {
+    // 10.03 * 1.25 + 5.01 * 1.33 = 12.5375 + 6.6633 = 19.2008 (raw, unrounded).
+    // The view's final select computes `total` with no round() call, so with
+    // no discount and no tax the total must carry the same unrounded 19.2008 —
+    // not the rounded 19.20 a stray round2() wrapper would produce.
+    const fractionalItems = [
+      { unitPrice: 10.03, quantity: 1.25 },
+      { unitPrice: 5.01, quantity: 1.33 },
+    ];
+    const result = computeTotals(fractionalItems, null, 0, 0);
+    expect(result.total).toBeCloseTo(19.2008, 4);
+  });
 });
 
 describe('balance + payment mapping', () => {
