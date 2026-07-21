@@ -85,6 +85,7 @@ interface DraftLine { serviceId: string | null; description: string; unitPrice: 
           </div>
         }
         <button mat-stroked-button (click)="addLine()"><mat-icon>add</mat-icon> Add line</button>
+        @if (lineWarning()) { <p class="error">{{ lineWarning() }}</p> }
       </mat-card-content>
     </mat-card>
 
@@ -114,7 +115,7 @@ interface DraftLine { serviceId: string | null; description: string; unitPrice: 
         @if (err()) { <p class="error">{{ err() }}</p> }
 
         <div class="actions">
-          <button mat-flat-button [disabled]="!canSave() || saving()" (click)="save()">
+          <button mat-flat-button [disabled]="!canSave()" (click)="save()">
             <mat-icon>save</mat-icon> Create invoice
           </button>
         </div>
@@ -158,12 +159,41 @@ export class InvoiceFormComponent {
 
   lines = signal<DraftLine[]>([{ serviceId: null, description: '', unitPrice: 0, quantity: 1 }]);
 
+  // The single source of truth for which lines are real: a non-empty
+  // description, a non-negative price, and a positive quantity. Everything
+  // that gets previewed, saved, or gates save-ability must derive from this
+  // same set so the previewed total and the saved invoice can never disagree.
+  savableLines = computed(() =>
+    this.lines().filter(l => l.description.trim() && l.unitPrice >= 0 && l.quantity > 0),
+  );
+
+  // Rows the user has clearly started (typed a description or entered a
+  // price) but that don't qualify as savable — e.g. a description with
+  // quantity left at 0. These must not be silently dropped: surface them.
+  invalidLineNumbers = computed(() => {
+    const savable = new Set(this.savableLines());
+    const nums: number[] = [];
+    this.lines().forEach((l, i) => {
+      const started = l.description.trim() !== '' || l.unitPrice > 0;
+      if (started && !savable.has(l)) nums.push(i + 1);
+    });
+    return nums;
+  });
+
+  lineWarning = computed(() => {
+    const nums = this.invalidLineNumbers();
+    if (!nums.length) return '';
+    const label = nums.length === 1 ? `Line ${nums[0]}` : `Lines ${nums.join(', ')}`;
+    const pronoun = nums.length === 1 ? 'it' : 'them';
+    return `${label} will not be included on the invoice — add a description, a price of 0 or more, and a quantity greater than 0 to include ${pronoun}.`;
+  });
+
   totals = computed(() =>
-    computeTotals(this.lines(), this.discountType(), Number(this.discountValue()) || 0, this.settings.taxRate()),
+    computeTotals(this.savableLines(), this.discountType(), Number(this.discountValue()) || 0, this.settings.taxRate()),
   );
 
   canSave = computed(() =>
-    !!this.patientId() && this.lines().some(l => l.description.trim() && l.unitPrice > 0),
+    !!this.patientId() && this.savableLines().length > 0 && !this.saving(),
   );
 
   onPatientSearch(q: string) { this.patientQuery.set(q); this.patients.setSearch(q); }
@@ -191,9 +221,8 @@ export class InvoiceFormComponent {
     if (this.saving() || !this.canSave()) return;
     this.saving.set(true);
     this.err.set('');
-    const items: CreateInvoiceItemDto[] = this.lines()
-      .filter(l => l.description.trim() && l.unitPrice > 0)
-      .map(l => ({ serviceId: l.serviceId, description: l.description.trim(), unitPrice: l.unitPrice, quantity: l.quantity || 1 }));
+    const items: CreateInvoiceItemDto[] = this.savableLines()
+      .map(l => ({ serviceId: l.serviceId, description: l.description.trim(), unitPrice: l.unitPrice, quantity: l.quantity }));
     try {
       const id = await this.invoices.create(
         {
