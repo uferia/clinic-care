@@ -176,7 +176,7 @@ export class PatientHistoryComponent {
     const { data: { user } } = await this.supabase.auth.getUser();
     await this.notes.add({
       patientId: this.patientId(),
-      visitDate: this.visitDate ? toIsoDate(this.visitDate) : new Date().toISOString().slice(0, 10),
+      visitDate: toIsoDate(this.visitDate ?? new Date()),
       body,
       authorEmail: user?.email ?? '',
     });
