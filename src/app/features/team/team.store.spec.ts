@@ -55,4 +55,33 @@ describe('TeamStore', () => {
     });
     expect(result).toEqual({ inserted: ['new@x.com'], skipped: ['taken@x.com'] });
   });
+
+  it('setRole invokes manage-member with the new role', async () => {
+    const invoke = vi.fn().mockResolvedValue({ data: { member: {} }, error: null });
+    const store = setup(makeClient(invoke));
+    await new Promise(r => setTimeout(r));
+    await store.setRole('m2', 'clinic_admin');
+    expect(invoke).toHaveBeenCalledWith('manage-member', {
+      body: { member_id: 'm2', action: 'set_role', role: 'clinic_admin' },
+    });
+  });
+
+  it('remove invokes manage-member with the remove action', async () => {
+    const invoke = vi.fn().mockResolvedValue({ data: { member: {} }, error: null });
+    const store = setup(makeClient(invoke));
+    await new Promise(r => setTimeout(r));
+    await store.remove('m2');
+    expect(invoke).toHaveBeenCalledWith('manage-member', {
+      body: { member_id: 'm2', action: 'remove' },
+    });
+  });
+
+  it('surfaces the last-admin refusal from the edge function', async () => {
+    const error = Object.assign(new Error('Edge Function returned a non-2xx status code'), {
+      context: new Response(JSON.stringify({ error: 'last admin' }), { status: 409 }),
+    });
+    const store = setup(makeClient(vi.fn().mockResolvedValue({ data: null, error })));
+    await new Promise(r => setTimeout(r));
+    await expect(store.setRole('m1', 'staff')).rejects.toThrow('last admin');
+  });
 });

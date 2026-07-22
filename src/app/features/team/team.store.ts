@@ -50,6 +50,22 @@ export class TeamStore {
     this.membersResource.reload();
   }
 
+  /** Change a member's role. The server refuses to demote a clinic's last admin. */
+  async setRole(memberId: string, role: 'clinic_admin' | 'staff'): Promise<void> {
+    await this.manage({ member_id: memberId, action: 'set_role', role });
+  }
+
+  /** Revoke access. The person keeps their Google account but lands on /no-access. */
+  async remove(memberId: string): Promise<void> {
+    await this.manage({ member_id: memberId, action: 'remove' });
+  }
+
+  private async manage(body: Record<string, unknown>): Promise<void> {
+    const { error } = await this.supabase.functions.invoke('manage-member', { body });
+    if (error) throw await edgeError(error);
+    this.membersResource.reload();
+  }
+
   /** No clinic_id is sent — the edge function pins a clinic_admin to their own clinic. */
   async invite(emails: string[], role: 'clinic_admin' | 'staff'): Promise<InviteResult> {
     const { data, error } = await this.supabase.functions.invoke('add-members', {
