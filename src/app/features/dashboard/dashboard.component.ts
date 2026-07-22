@@ -7,10 +7,12 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { DashboardStore } from './dashboard.store';
+import { GettingStartedComponent } from '../onboarding/getting-started.component';
 
 @Component({
   selector: 'app-dashboard',
   imports: [
+    GettingStartedComponent,
     RouterLink,
     DatePipe,
     TitleCasePipe,
@@ -47,6 +49,8 @@ import { DashboardStore } from './dashboard.store';
         </button>
       </div>
     } @else {
+      <app-getting-started />
+
       <!-- Headline numbers are stat tiles, not one-bar charts. Each tile is one
            link target rather than repeating a "View all" affordance. -->
       <section class="kpis" aria-label="Key figures">
