@@ -1,5 +1,6 @@
 import { handleCors, json } from '../_shared/cors.ts';
 import { requireSuperAdmin } from '../_shared/auth.ts';
+import { validateClinicName } from '../_shared/clinic-name.ts';
 
 Deno.serve(async (req) => {
   const pre = handleCors(req);
@@ -14,7 +15,8 @@ Deno.serve(async (req) => {
   } catch {
     return json({ error: 'invalid body' }, 400);
   }
-  if (!name?.trim()) return json({ error: 'name is required' }, 400);
+  const invalid = validateClinicName(name);
+  if (invalid) return json({ error: invalid }, 400);
 
   const { data: clinic, error } = await gate.admin
     .from('clinics')

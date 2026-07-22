@@ -1,10 +1,14 @@
 import { handleCors, json } from '../_shared/cors.ts';
 import { requireMemberManager } from '../_shared/auth.ts';
+import { validateClinicName } from '../_shared/clinic-name.ts';
 
 function statusFor(message: string): number {
   if (message.includes('forbidden')) return 403;
   if (message.includes('clinic not found')) return 404;
-  if (message.includes('name required')) return 400;
+  if (
+    message.includes('name required')
+    || message.includes('name too short') || message.includes('name too long')
+  ) return 400;
   return 500;
 }
 
@@ -33,7 +37,8 @@ Deno.serve(async (req) => {
   // A clinic_admin edits their own clinic whatever the body says; only a super-admin picks.
   const clinicId = gate.isSuperAdmin ? body.clinic_id : gate.clinicId;
   if (!clinicId) return json({ error: 'clinic_id is required' }, 400);
-  if (!body.name?.trim()) return json({ error: 'name is required' }, 400);
+  const invalid = validateClinicName(body.name);
+  if (invalid) return json({ error: invalid }, 400);
 
   const { data: clinic, error } = await gate.admin.rpc('update_clinic_profile', {
     p_actor_user_id: gate.userId,

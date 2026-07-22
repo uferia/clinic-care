@@ -1,10 +1,14 @@
 import { handleCors, json } from '../_shared/cors.ts';
 import { requireAuthUser } from '../_shared/auth.ts';
+import { validateClinicName } from '../_shared/clinic-name.ts';
 
 /** Postgres raises plain messages; map the expected ones to real status codes. */
 function statusFor(message: string): number {
   if (message.includes('already a member')) return 409;
-  if (message.includes('name required') || message.includes('email required')) return 400;
+  if (
+    message.includes('name required') || message.includes('email required')
+    || message.includes('name too short') || message.includes('name too long')
+  ) return 400;
   return 500;
 }
 
@@ -22,7 +26,8 @@ Deno.serve(async (req) => {
   } catch {
     return json({ error: 'invalid body' }, 400);
   }
-  if (!name?.trim()) return json({ error: 'name is required' }, 400);
+  const invalid = validateClinicName(name);
+  if (invalid) return json({ error: invalid }, 400);
 
   // One transaction: clinic + trialing subscription + clinic_admin membership, or nothing.
   const { data: clinic, error } = await gate.admin.rpc('register_clinic', {

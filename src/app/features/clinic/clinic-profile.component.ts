@@ -5,6 +5,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { ClinicContextService } from '../../core/clinic/clinic-context.service';
+import { CLINIC_NAME_MAX, clinicNameError } from '../../core/clinic-name';
 import { ClinicProfileStore } from './clinic-profile.store';
 
 @Component({
@@ -17,9 +18,15 @@ import { ClinicProfileStore } from './clinic-profile.store';
 
       <mat-form-field appearance="outline" class="wide">
         <mat-label>Clinic name</mat-label>
-        <input matInput [value]="name()" (input)="name.set($any($event.target).value)" />
-        @if (!name().trim()) { <mat-error>A clinic name is required.</mat-error> }
+        <input
+          matInput
+          [value]="name()"
+          (input)="name.set($any($event.target).value)"
+          [attr.maxlength]="nameMax" />
       </mat-form-field>
+      <!-- Plain text, not <mat-error>: signal-bound fields never put mat-form-field into
+           the error state that would reveal one. -->
+      @if (nameError()) { <div class="err field-err">{{ nameError() }}</div> }
 
       <mat-form-field appearance="outline" class="wide">
         <mat-label>Address</mat-label>
@@ -44,7 +51,7 @@ import { ClinicProfileStore } from './clinic-profile.store';
       </div>
 
       <div class="actions">
-        <button mat-flat-button [disabled]="!dirty() || !name().trim() || busy()" (click)="save()">
+        <button mat-flat-button [disabled]="!dirty() || !!nameError() || busy()" (click)="save()">
           <mat-icon>save</mat-icon>
           {{ busy() ? 'Saving…' : 'Save' }}
         </button>
@@ -63,6 +70,7 @@ import { ClinicProfileStore } from './clinic-profile.store';
     .actions { display: flex; align-items: center; gap: 0.75rem; }
     .ok { color: var(--mat-sys-primary); font: var(--mat-sys-body-small); }
     .err { color: var(--mat-sys-error); font: var(--mat-sys-body-small); }
+    .field-err { margin: -0.5rem 0 0.75rem; }
   `,
 })
 export class ClinicProfileComponent {
@@ -78,6 +86,9 @@ export class ClinicProfileComponent {
   protected busy = signal(false);
   protected saved = signal(false);
   protected error = signal<string | null>(null);
+
+  protected nameMax = CLINIC_NAME_MAX;
+  protected nameError = computed(() => clinicNameError(this.name()));
 
   private loaded = computed(() => {
     const a = this.ctx.access();
@@ -110,7 +121,7 @@ export class ClinicProfileComponent {
   }
 
   async save(): Promise<void> {
-    if (this.busy() || !this.name().trim()) return;
+    if (this.busy() || this.nameError()) return;
     this.busy.set(true);
     this.error.set(null);
     this.saved.set(false);

@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
@@ -7,6 +7,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { AuthService } from '../../core/auth/auth.service';
 import { ClinicContextService } from '../../core/clinic/clinic-context.service';
+import { CLINIC_NAME_MAX, clinicNameError } from '../../core/clinic-name';
 import { RegistrationStore } from './registration.store';
 
 @Component({
@@ -35,10 +36,18 @@ import { RegistrationStore } from './registration.store';
             [value]="name()"
             (input)="name.set($any($event.target).value)"
             (keyup.enter)="create()"
+            [attr.maxlength]="nameMax"
             i18n-placeholder="@@signup.clinicNameHint"
             placeholder="e.g. Sunrise Family Clinic" />
         </mat-form-field>
-        <button mat-flat-button (click)="create()" [disabled]="!name().trim() || busy()">
+        <!--
+          Plain text rather than <mat-error>: these fields are signal-bound, not form
+          controls, so mat-form-field never enters the error state that would reveal a
+          mat-error — the message would silently never appear. Only nag once they have
+          typed something; an untouched field is not a mistake.
+        -->
+        @if (name() && nameError()) { <div class="err">{{ nameError() }}</div> }
+        <button mat-flat-button (click)="create()" [disabled]="!!nameError() || busy()">
           <mat-icon>rocket_launch</mat-icon>
           @if (busy()) {
             <ng-container i18n="@@signup.creating">Creating…</ng-container>
@@ -72,9 +81,12 @@ export class NoAccessComponent {
   protected busy = signal(false);
   protected error = signal<string | null>(null);
 
+  protected nameMax = CLINIC_NAME_MAX;
+  protected nameError = computed(() => clinicNameError(this.name()));
+
   async create(): Promise<void> {
     const name = this.name().trim();
-    if (!name || this.busy()) return;
+    if (this.nameError() || this.busy()) return;
     this.busy.set(true);
     this.error.set(null);
     try {

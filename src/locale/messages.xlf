@@ -49,7 +49,7 @@
         </context-group>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/features/access/no-access.component.ts</context>
-          <context context-type="linenumber">23,24</context>
+          <context context-type="linenumber">24,25</context>
         </context-group>
       </trans-unit>
       <trans-unit id="nav.dashboard" datatype="html">
@@ -85,6 +85,27 @@
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/app.ts</context>
           <context context-type="linenumber">37</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="clinicName.required" datatype="html">
+        <source>A clinic name is required.</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/core/clinic-name.ts</context>
+          <context context-type="linenumber">12</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="clinicName.tooShort" datatype="html">
+        <source>Use at least <x id="MIN" equiv-text="CLINIC_NAME_MIN"/> characters.</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/core/clinic-name.ts</context>
+          <context context-type="linenumber">14</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="clinicName.tooLong" datatype="html">
+        <source>Use at most <x id="MAX" equiv-text="CLINIC_NAME_MAX"/> characters.</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/core/clinic-name.ts</context>
+          <context context-type="linenumber">17</context>
         </context-group>
       </trans-unit>
       <trans-unit id="blocked.title" datatype="html">
@@ -133,63 +154,63 @@
         <source>No clinic access</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/features/access/no-access.component.ts</context>
-          <context context-type="linenumber">19,20</context>
+          <context context-type="linenumber">20,21</context>
         </context-group>
       </trans-unit>
       <trans-unit id="noAccess.body" datatype="html">
         <source>Your account isn&apos;t linked to a clinic yet. Ask your clinic administrator to add your email, then sign in again.</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/features/access/no-access.component.ts</context>
-          <context context-type="linenumber">20,21</context>
+          <context context-type="linenumber">21,22</context>
         </context-group>
       </trans-unit>
       <trans-unit id="signup.title" datatype="html">
         <source>Starting a new clinic?</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/features/access/no-access.component.ts</context>
-          <context context-type="linenumber">29,30</context>
+          <context context-type="linenumber">30,31</context>
         </context-group>
       </trans-unit>
       <trans-unit id="signup.body" datatype="html">
         <source>Register now and get a 30-day free trial. No approval needed.</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/features/access/no-access.component.ts</context>
-          <context context-type="linenumber">30,31</context>
+          <context context-type="linenumber">31,32</context>
         </context-group>
       </trans-unit>
       <trans-unit id="signup.clinicName" datatype="html">
         <source>Clinic name</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/features/access/no-access.component.ts</context>
-          <context context-type="linenumber">32,34</context>
+          <context context-type="linenumber">33,35</context>
         </context-group>
       </trans-unit>
       <trans-unit id="signup.clinicNameHint" datatype="html">
         <source>e.g. Sunrise Family Clinic</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/features/access/no-access.component.ts</context>
-          <context context-type="linenumber">39,41</context>
+          <context context-type="linenumber">41,43</context>
         </context-group>
       </trans-unit>
       <trans-unit id="signup.creating" datatype="html">
         <source>Creating…</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/features/access/no-access.component.ts</context>
-          <context context-type="linenumber">44,45</context>
+          <context context-type="linenumber">53,54</context>
         </context-group>
       </trans-unit>
       <trans-unit id="signup.create" datatype="html">
         <source>Create clinic</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/features/access/no-access.component.ts</context>
-          <context context-type="linenumber">46,48</context>
+          <context context-type="linenumber">55,57</context>
         </context-group>
       </trans-unit>
       <trans-unit id="signup.failed" datatype="html">
         <source>Could not create the clinic.</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/features/access/no-access.component.ts</context>
-          <context context-type="linenumber">86</context>
+          <context context-type="linenumber">98</context>
         </context-group>
       </trans-unit>
       <trans-unit id="trial.endsToday" datatype="html">

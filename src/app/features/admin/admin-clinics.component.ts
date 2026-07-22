@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
@@ -7,6 +7,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { CLINIC_NAME_MAX, clinicNameError } from '../../core/clinic-name';
 import { AdminStore } from './admin.store';
 
 @Component({
@@ -21,10 +22,17 @@ import { AdminStore } from './admin.store';
       <form (submit)="$event.preventDefault(); create()">
         <mat-form-field appearance="outline">
           <mat-label>New clinic name</mat-label>
-          <input matInput [value]="name()" (input)="name.set($any($event.target).value)" />
+          <input
+            matInput
+            [value]="name()"
+            (input)="name.set($any($event.target).value)"
+            [attr.maxlength]="nameMax" />
         </mat-form-field>
-        <button mat-flat-button type="submit" [disabled]="!name().trim() || busy()">Create</button>
+        <button mat-flat-button type="submit" [disabled]="!!nameError() || busy()">Create</button>
       </form>
+      <!-- Plain text, not <mat-error>: signal-bound fields never put mat-form-field into
+           the error state that would reveal one. -->
+      @if (name() && nameError()) { <div class="err">{{ nameError() }}</div> }
       @if (createError()) { <div class="err">{{ createError() }}</div> }
     </mat-card>
 
@@ -66,8 +74,11 @@ export class AdminClinicsComponent {
   protected busy = signal(false);
   protected createError = signal<string | null>(null);
 
+  protected nameMax = CLINIC_NAME_MAX;
+  protected nameError = computed(() => clinicNameError(this.name()));
+
   async create() {
-    if (!this.name().trim()) return;
+    if (this.nameError()) return;
     this.busy.set(true);
     this.createError.set(null);
     try {
