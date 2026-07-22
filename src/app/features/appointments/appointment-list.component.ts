@@ -50,6 +50,10 @@ import { APPOINTMENT_STATUSES, AppointmentStatus, AppointmentView } from './appo
           }
         </mat-select>
       </mat-form-field>
+      <a mat-stroked-button routerLink="calendar">
+        <mat-icon>calendar_month</mat-icon>
+        Calendar
+      </a>
       <a mat-flat-button routerLink="new">
         <mat-icon>add</mat-icon>
         Book

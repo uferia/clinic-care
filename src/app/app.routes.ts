@@ -53,6 +53,7 @@ export const routes: Routes = [
     canActivate: [authGuard, accessGuard],
     children: [
       { path: '', loadComponent: () => import('./features/appointments/appointment-list.component').then(m => m.AppointmentListComponent) },
+      { path: 'calendar', loadComponent: () => import('./features/appointments/appointment-calendar.component').then(m => m.AppointmentCalendarComponent) },
       { path: 'new', loadComponent: () => import('./features/appointments/appointment-form.component').then(m => m.AppointmentFormComponent) },
       { path: ':id', loadComponent: () => import('./features/appointments/appointment-form.component').then(m => m.AppointmentFormComponent) },
     ],
