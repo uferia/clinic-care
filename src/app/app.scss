@@ -8,6 +8,17 @@
   border-bottom: 1px solid var(--mat-sys-outline-variant);
 }
 
+// App chrome is screen-only. A printed page is a document in its own right —
+// most often a patient's invoice receipt — and the nav, plan badge, and account
+// controls are neither meaningful nor wanted on paper. Individual pages hide
+// their own interactive controls via `.no-print`; this covers the shell, which
+// sits outside every routed component and so is out of their reach.
+@media print {
+  .app-bar {
+    display: none;
+  }
+}
+
 .brand-mark {
   color: var(--mat-sys-primary);
 }
