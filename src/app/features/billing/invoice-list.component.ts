@@ -1,7 +1,8 @@
-import { Component, effect, inject } from '@angular/core';
+import { Component, effect, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { DecimalPipe } from '@angular/common';
+import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
 import { MatInputModule } from '@angular/material/input';
@@ -10,14 +11,15 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatTableModule } from '@angular/material/table';
 import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { toIsoDate } from '../../core/date.util';
 import { InvoiceStore } from './invoice.store';
 import { INVOICE_STATUSES } from './billing.model';
 
 @Component({
   selector: 'app-invoice-list',
   imports: [
-    RouterLink, FormsModule, DecimalPipe, MatFormFieldModule, MatSelectModule,
-    MatInputModule, MatButtonModule, MatIconModule, MatTableModule,
+    RouterLink, FormsModule, DecimalPipe, MatDatepickerModule, MatFormFieldModule,
+    MatSelectModule, MatInputModule, MatButtonModule, MatIconModule, MatTableModule,
     MatPaginatorModule, MatProgressBarModule,
   ],
   providers: [InvoiceStore],
@@ -40,11 +42,26 @@ import { INVOICE_STATUSES } from './billing.model';
       </mat-form-field>
       <mat-form-field appearance="outline" subscriptSizing="dynamic">
         <mat-label>From</mat-label>
-        <input matInput type="date" [ngModel]="fromDate" (ngModelChange)="onFrom($event)" />
+        <input
+          matInput
+          [matDatepicker]="fromPicker"
+          [max]="toDate() ?? today"
+          [ngModel]="fromDate()"
+          (ngModelChange)="onFrom($event)" />
+        <mat-datepicker-toggle matIconSuffix [for]="fromPicker" />
+        <mat-datepicker #fromPicker />
       </mat-form-field>
       <mat-form-field appearance="outline" subscriptSizing="dynamic">
         <mat-label>To</mat-label>
-        <input matInput type="date" [ngModel]="toDate" (ngModelChange)="onTo($event)" />
+        <input
+          matInput
+          [matDatepicker]="toPicker"
+          [min]="fromDate()"
+          [max]="today"
+          [ngModel]="toDate()"
+          (ngModelChange)="onTo($event)" />
+        <mat-datepicker-toggle matIconSuffix [for]="toPicker" />
+        <mat-datepicker #toPicker />
       </mat-form-field>
     </div>
 
@@ -117,8 +134,15 @@ export class InvoiceListComponent {
   store = inject(InvoiceStore);
   statuses = INVOICE_STATUSES;
   cols = ['number', 'patient', 'date', 'total', 'balance', 'status'];
-  fromDate = '';
-  toDate = '';
+
+  // Invoices cannot be postdated (the create form caps issue date at today), so
+  // a filter beyond today can only ever match nothing. From/To also bound each
+  // other, so an inverted range — which returns an empty table indistinguishable
+  // from "no invoices" — cannot be entered in the first place.
+  readonly today = new Date();
+
+  fromDate = signal<Date | null>(null);
+  toDate = signal<Date | null>(null);
 
   constructor() {
     // `InvoiceStore` mutations (void, addPayment, create) call `reload()` against
@@ -136,7 +160,24 @@ export class InvoiceListComponent {
     });
   }
 
-  onFrom(v: string) { this.fromDate = v; this.store.setDateRange(v, this.toDate); }
-  onTo(v: string) { this.toDate = v; this.store.setDateRange(this.fromDate, v); }
+  // The datepicker deals in `Date`; the store filters on `YYYY-MM-DD`. Both
+  // bounds are optional here, so an unset one is passed as '' and the store
+  // simply omits that side of the range.
+  onFrom(d: Date | null) {
+    this.fromDate.set(d);
+    this.pushRange();
+  }
+
+  onTo(d: Date | null) {
+    this.toDate.set(d);
+    this.pushRange();
+  }
+
+  private pushRange() {
+    const from = this.fromDate();
+    const to = this.toDate();
+    this.store.setDateRange(from ? toIsoDate(from) : '', to ? toIsoDate(to) : '');
+  }
+
   onPage(e: PageEvent) { this.store.setPage(e.pageIndex + 1); }
 }

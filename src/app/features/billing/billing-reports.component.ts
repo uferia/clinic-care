@@ -1,19 +1,21 @@
-import { Component, computed, inject } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { DecimalPipe } from '@angular/common';
 import { MatCardModule } from '@angular/material/card';
+import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatTableModule } from '@angular/material/table';
+import { toIsoDate } from '../../core/date.util';
 import { ReportsStore } from './reports.store';
 
 @Component({
   selector: 'app-billing-reports',
   imports: [
-    RouterLink, FormsModule, DecimalPipe, MatCardModule, MatFormFieldModule,
-    MatInputModule, MatProgressBarModule, MatTableModule,
+    RouterLink, FormsModule, DecimalPipe, MatCardModule, MatDatepickerModule,
+    MatFormFieldModule, MatInputModule, MatProgressBarModule, MatTableModule,
   ],
   providers: [ReportsStore],
   template: `
@@ -28,7 +30,14 @@ import { ReportsStore } from './reports.store';
           <h2>Daily cash close</h2>
           <mat-form-field appearance="outline" subscriptSizing="dynamic">
             <mat-label>Day</mat-label>
-            <input matInput type="date" [ngModel]="day" (ngModelChange)="onDay($event)" />
+            <input
+              matInput
+              [matDatepicker]="dayPicker"
+              [max]="today"
+              [ngModel]="day()"
+              (ngModelChange)="onDay($event)" />
+            <mat-datepicker-toggle matIconSuffix [for]="dayPicker" />
+            <mat-datepicker #dayPicker />
           </mat-form-field>
           <p class="figure">{{ store.dayNet() | number: '1.2-2' }}</p>
           <p class="muted">
@@ -44,11 +53,26 @@ import { ReportsStore } from './reports.store';
           <div class="range">
             <mat-form-field appearance="outline" subscriptSizing="dynamic">
               <mat-label>From</mat-label>
-              <input matInput type="date" [ngModel]="from" (ngModelChange)="onFrom($event)" />
+              <input
+                matInput
+                [matDatepicker]="fromPicker"
+                [max]="to() ?? today"
+                [ngModel]="from()"
+                (ngModelChange)="onFrom($event)" />
+              <mat-datepicker-toggle matIconSuffix [for]="fromPicker" />
+              <mat-datepicker #fromPicker />
             </mat-form-field>
             <mat-form-field appearance="outline" subscriptSizing="dynamic">
               <mat-label>To</mat-label>
-              <input matInput type="date" [ngModel]="to" (ngModelChange)="onTo($event)" />
+              <input
+                matInput
+                [matDatepicker]="toPicker"
+                [min]="from()"
+                [max]="today"
+                [ngModel]="to()"
+                (ngModelChange)="onTo($event)" />
+              <mat-datepicker-toggle matIconSuffix [for]="toPicker" />
+              <mat-datepicker #toPicker />
             </mat-form-field>
           </div>
           <p class="figure">{{ store.periodNet() | number: '1.2-2' }}</p>
@@ -96,9 +120,16 @@ import { ReportsStore } from './reports.store';
 export class BillingReportsComponent {
   store = inject(ReportsStore);
   cols = ['number', 'patient', 'balance'];
-  day = new Date().toISOString().slice(0, 10);
-  from = this.day;
-  to = this.day;
+
+  // Cash basis: these report money already received, so a future date is not a
+  // question that can have an answer — it would silently render 0.00, reading
+  // as "we took nothing" rather than "that range is meaningless". Capped here,
+  // and From/To additionally bound each other so the range can never invert.
+  readonly today = new Date();
+
+  day = signal<Date | null>(new Date());
+  from = signal<Date | null>(new Date());
+  to = signal<Date | null>(new Date());
 
   // Same load-error convention as BillingSettingsComponent: a plain computed
   // paragraph, no MatSnackBar (unused anywhere in this repo).
@@ -108,7 +139,31 @@ export class BillingReportsComponent {
     return e instanceof Error ? e.message : 'Could not load reports.';
   });
 
-  onDay(v: string) { this.day = v; this.store.setDay(v); }
-  onFrom(v: string) { this.from = v; this.store.setRange(v, this.to); }
-  onTo(v: string) { this.to = v; this.store.setRange(this.from, v); }
+  // The datepicker deals in `Date`; the store deals in `YYYY-MM-DD`. `toIsoDate`
+  // formats from local date components — `toISOString()` would resolve the day
+  // in UTC and hand the store yesterday for anyone east of Greenwich.
+  onDay(d: Date | null) {
+    if (!d) return;
+    this.day.set(d);
+    this.store.setDay(toIsoDate(d));
+  }
+
+  onFrom(d: Date | null) {
+    if (!d) return;
+    this.from.set(d);
+    this.pushRange();
+  }
+
+  onTo(d: Date | null) {
+    if (!d) return;
+    this.to.set(d);
+    this.pushRange();
+  }
+
+  private pushRange() {
+    const from = this.from();
+    const to = this.to();
+    if (!from || !to) return;
+    this.store.setRange(toIsoDate(from), toIsoDate(to));
+  }
 }

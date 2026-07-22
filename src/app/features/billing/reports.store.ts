@@ -1,5 +1,6 @@
 import { computed, inject, resource, Service, signal } from '@angular/core';
 import { SUPABASE } from '../../core/supabase.client';
+import { toIsoDate } from '../../core/date.util';
 import { Payment, toPayment } from './billing.model';
 
 export interface OutstandingRow { id: string; number: string; patientName: string; balance: number; }
@@ -8,9 +9,13 @@ export interface OutstandingRow { id: string; number: string; patientName: strin
 export class ReportsStore {
   private supabase = inject(SUPABASE);
 
-  private _day = signal<string>(new Date().toISOString().slice(0, 10));
-  private _from = signal<string>(new Date().toISOString().slice(0, 10));
-  private _to = signal<string>(new Date().toISOString().slice(0, 10));
+  // Local calendar day, via `toIsoDate` — NOT `toISOString().slice(0, 10)`,
+  // which resolves the day in UTC. East of Greenwich that returns yesterday
+  // for the whole local morning (UTC+8: midnight to 08:00), so the reports
+  // would open on the wrong day's cash close.
+  private _day = signal<string>(toIsoDate(new Date()));
+  private _from = signal<string>(toIsoDate(new Date()));
+  private _to = signal<string>(toIsoDate(new Date()));
 
   setDay(iso: string) { this._day.set(iso); }
   setRange(from: string, to: string) { this._from.set(from); this._to.set(to); }

@@ -3,12 +3,14 @@ import { Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { DecimalPipe } from '@angular/common';
 import { MatCardModule } from '@angular/material/card';
+import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatAutocompleteModule } from '@angular/material/autocomplete';
+import { toIsoDate } from '../../core/date.util';
 import { InvoiceStore } from './invoice.store';
 import { ServiceStore } from './service.store';
 import { BillingSettingsStore } from './billing-settings.store';
@@ -26,8 +28,9 @@ interface DraftLine { serviceId: string | null; description: string; unitPrice: 
 @Component({
   selector: 'app-invoice-form',
   imports: [
-    RouterLink, FormsModule, DecimalPipe, MatCardModule, MatFormFieldModule,
-    MatInputModule, MatSelectModule, MatButtonModule, MatIconModule, MatAutocompleteModule,
+    RouterLink, FormsModule, DecimalPipe, MatCardModule, MatDatepickerModule,
+    MatFormFieldModule, MatInputModule, MatSelectModule, MatButtonModule, MatIconModule,
+    MatAutocompleteModule,
   ],
   providers: [InvoiceStore, ServiceStore, BillingSettingsStore, PatientStore],
   template: `
@@ -52,7 +55,14 @@ interface DraftLine { serviceId: string | null; description: string; unitPrice: 
 
         <mat-form-field appearance="outline">
           <mat-label>Issue date</mat-label>
-          <input matInput type="date" [(ngModel)]="issueDate" />
+          <input
+            matInput
+            [matDatepicker]="issuePicker"
+            [max]="today"
+            [ngModel]="issueDate()"
+            (ngModelChange)="onIssueDate($event)" />
+          <mat-datepicker-toggle matIconSuffix [for]="issuePicker" />
+          <mat-datepicker #issuePicker />
         </mat-form-field>
       </mat-card-content>
     </mat-card>
@@ -170,7 +180,15 @@ export class InvoiceFormComponent {
   private router = inject(Router);
 
   discountTypes = DISCOUNT_TYPES;
-  issueDate = new Date().toISOString().slice(0, 10);
+  // Backdating is legitimate (yesterday's paperwork entered today); postdating
+  // is not — it is an audit red flag, and `taxRate` is snapshotted at creation,
+  // so a future-dated invoice would carry today's rate under tomorrow's date.
+  readonly today = new Date();
+  issueDate = signal<Date>(new Date());
+
+  onIssueDate(d: Date | null) {
+    if (d) this.issueDate.set(d);
+  }
   discountType = signal<DiscountType | null>(null);
   discountValue = signal<number>(0);
   patientId = signal<string | null>(null);
@@ -295,7 +313,7 @@ export class InvoiceFormComponent {
         {
           patientId: this.patientId()!,
           appointmentId: null,
-          issueDate: this.issueDate,
+          issueDate: toIsoDate(this.issueDate()),
           discountType: this.discountType(),
           discountValue: Number(this.discountValue()) || 0,
           taxRate: this.settings.taxRate(),
