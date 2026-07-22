@@ -36,5 +36,13 @@ Deno.serve(async (req) => {
     .single();
   if (error) return json({ error: error.message }, 500);
 
+  await gate.admin.rpc('log_audit', {
+    p_clinic_id: clinic_id,
+    p_actor: gate.userId,
+    p_action: 'subscription.activate',
+    p_target: activeUntil,
+    p_details: { months },
+  });
+
   return json({ subscription: sub }, 200);
 });

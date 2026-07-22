@@ -29,5 +29,12 @@ Deno.serve(async (req) => {
     .insert({ clinic_id: clinic.id, status: 'trialing', trial_ends_at: trialEnds });
   if (subErr) return json({ error: subErr.message }, 500);
 
+  await gate.admin.rpc('log_audit', {
+    p_clinic_id: clinic.id,
+    p_actor: gate.userId,
+    p_action: 'clinic.create',
+    p_target: clinic.name,
+  });
+
   return json({ clinic }, 200);
 });

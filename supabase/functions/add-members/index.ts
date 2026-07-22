@@ -43,6 +43,14 @@ Deno.serve(async (req) => {
     const rows = toInsert.map(email => ({ clinic_id, email, role }));
     const { error } = await gate.admin.from('memberships').insert(rows);
     if (error) return json({ error: error.message }, 500);
+
+    await gate.admin.rpc('log_audit', {
+      p_clinic_id: clinic_id,
+      p_actor: gate.userId,
+      p_action: 'member.invite',
+      p_target: toInsert.join(', '),
+      p_details: { role, count: toInsert.length },
+    });
   }
 
   return json({ inserted: toInsert, skipped }, 200);

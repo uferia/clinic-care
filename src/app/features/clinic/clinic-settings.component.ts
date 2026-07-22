@@ -2,12 +2,13 @@ import { Component, computed, inject } from '@angular/core';
 import { MatTabsModule } from '@angular/material/tabs';
 import { ClinicContextService } from '../../core/clinic/clinic-context.service';
 import { ClinicProfileComponent } from './clinic-profile.component';
+import { ActivityComponent } from './activity.component';
 import { TeamComponent } from '../team/team.component';
 
 /** One home for the things a clinic owner administers: who they are, and who works there. */
 @Component({
   selector: 'app-clinic-settings',
-  imports: [MatTabsModule, ClinicProfileComponent, TeamComponent],
+  imports: [MatTabsModule, ClinicProfileComponent, TeamComponent, ActivityComponent],
   template: `
     <header class="head">
       <h1>{{ clinicName() }}</h1>
@@ -19,6 +20,9 @@ import { TeamComponent } from '../team/team.component';
       </mat-tab>
       <mat-tab label="Team">
         <div class="tab-body"><app-team /></div>
+      </mat-tab>
+      <mat-tab label="Activity">
+        <div class="tab-body"><app-activity /></div>
       </mat-tab>
     </mat-tab-group>
   `,
