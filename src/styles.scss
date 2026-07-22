@@ -1,5 +1,15 @@
 @use '@angular/material' as mat;
+@use '@angular/cdk' as cdk;
 @use './styles/theme-colors' as theme;
+
+// Structural styles for every CDK overlay — select/autocomplete panels, menus,
+// tooltips, dialogs. `mat.theme()` emits only design tokens, and `mat.core()`
+// is an empty no-op in Material 22, so nothing else supplies these. Without
+// them `.cdk-overlay-container` never gets `position: fixed` and
+// `.cdk-overlay-pane` never gets `position: absolute`, so every overlay falls
+// into normal document flow and renders at the top-left of the page instead of
+// anchored to its trigger.
+@include cdk.overlay();
 
 html {
   height: 100%;
