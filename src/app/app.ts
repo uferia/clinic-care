@@ -6,6 +6,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { AuthService } from './core/auth/auth.service';
 import { ClinicContextService } from './core/clinic/clinic-context.service';
+import { TrialBannerComponent } from './shared/trial-banner.component';
 
 @Component({
   selector: 'app-root',
@@ -17,6 +18,7 @@ import { ClinicContextService } from './core/clinic/clinic-context.service';
     MatToolbarModule,
     MatButtonModule,
     MatIconModule,
+    TrialBannerComponent,
   ],
   templateUrl: './app.html',
   styleUrl: './app.scss',
