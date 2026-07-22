@@ -17,6 +17,10 @@ function makeClient(counts: Record<string, number>) {
 const access: ClinicAccess = {
   clinicId: 'c1',
   clinicName: 'Sunrise',
+  address: null,
+  phone: null,
+  email: null,
+  taxId: null,
   role: 'clinic_admin',
   status: 'trialing',
   trialEndsAt: new Date(Date.now() + 86400_000).toISOString(),

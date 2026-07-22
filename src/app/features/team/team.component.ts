@@ -1,11 +1,10 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
-import { ClinicContextService } from '../../core/clinic/clinic-context.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { TeamStore, TeamMember } from './team.store';
 
@@ -13,11 +12,6 @@ import { TeamStore, TeamMember } from './team.store';
   selector: 'app-team',
   imports: [MatCardModule, MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule, MatSelectModule],
   template: `
-    <header class="head">
-      <h1>Team</h1>
-      <span class="meta">{{ clinicName() }}</span>
-    </header>
-
     <mat-card appearance="outlined" class="section">
       <h2>Invite people</h2>
       <p class="meta">
@@ -89,8 +83,6 @@ import { TeamStore, TeamMember } from './team.store';
     </mat-card>
   `,
   styles: `
-    .head { display: flex; align-items: baseline; gap: 0.75rem; margin-bottom: 1rem; }
-    .head h1 { font: var(--mat-sys-headline-small); margin: 0; }
     .section { padding: 1rem; margin-bottom: 1rem; }
     .section h2 { font: var(--mat-sys-title-medium); margin: 0 0 0.75rem; }
     .wide { width: 100%; }
@@ -109,10 +101,8 @@ import { TeamStore, TeamMember } from './team.store';
 })
 export class TeamComponent {
   protected store = inject(TeamStore);
-  private ctx = inject(ClinicContextService);
   private auth = inject(AuthService);
 
-  protected clinicName = computed(() => this.ctx.access()?.clinicName ?? '');
   protected emails = signal('');
   protected role = signal<'staff' | 'clinic_admin'>('staff');
   protected busy = signal(false);

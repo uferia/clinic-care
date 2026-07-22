@@ -14,6 +14,10 @@ function access(role: ClinicAccess['role']): ClinicAccess {
   return {
     clinicId: 'c1',
     clinicName: 'X',
+    address: null,
+    phone: null,
+    email: null,
+    taxId: null,
     role,
     status: 'trialing',
     trialEndsAt: new Date(Date.now() + 86400_000).toISOString(),

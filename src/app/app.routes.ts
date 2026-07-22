@@ -70,11 +70,13 @@ export const routes: Routes = [
     ],
   },
   {
-    path: 'team',
+    path: 'clinic',
     canActivate: [authGuard, accessGuard, clinicAdminGuard],
     loadComponent: () =>
-      import('./features/team/team.component').then(m => m.TeamComponent),
+      import('./features/clinic/clinic-settings.component').then(m => m.ClinicSettingsComponent),
   },
+  // Team moved under the clinic page; keep the old path working for bookmarks.
+  { path: 'team', redirectTo: 'clinic', pathMatch: 'full' },
   {
     path: 'admin',
     canActivate: [authGuard, superAdminGuard],

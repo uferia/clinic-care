@@ -24,6 +24,10 @@ function setup(client: unknown) {
   TestBed.inject(ClinicContextService).access.set({
     clinicId: 'c1',
     clinicName: 'X',
+    address: null,
+    phone: null,
+    email: null,
+    taxId: null,
     role: 'clinic_admin',
     status: 'trialing',
     trialEndsAt: new Date(Date.now() + 86400_000).toISOString(),

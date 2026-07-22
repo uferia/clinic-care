@@ -4,6 +4,11 @@ import { SUPABASE } from '../supabase.client';
 export interface ClinicAccess {
   clinicId: string;
   clinicName: string;
+  /** Letterhead details for printed invoices. All optional until the clinic fills them in. */
+  address: string | null;
+  phone: string | null;
+  email: string | null;
+  taxId: string | null;
   role: 'clinic_admin' | 'staff';
   status: 'trialing' | 'active' | 'expired';
   trialEndsAt: string | null;
@@ -57,15 +62,16 @@ export class ClinicContextService {
       this.isSuperAdmin.set(!!sa);
       const { data: membership } = await this.supabase
         .from('memberships')
-        .select('clinic_id, role, clinics(name)')
+        .select('clinic_id, role, clinics(name, address, phone, email, tax_id)')
         .eq('user_id', uid)
         .maybeSingle();
       if (!membership) {
         this.access.set(null);
         return;
       }
-      const clinic = (membership as any).clinics;
-      const clinicName = Array.isArray(clinic) ? clinic[0]?.name : clinic?.name;
+      const embedded = (membership as any).clinics;
+      const clinic = Array.isArray(embedded) ? embedded[0] : embedded;
+      const clinicName = clinic?.name;
       const { data: sub } = await this.supabase
         .from('subscriptions')
         .select('status, trial_ends_at, active_until')
@@ -74,6 +80,10 @@ export class ClinicContextService {
       this.access.set({
         clinicId: (membership as any).clinic_id,
         clinicName: clinicName ?? 'Your clinic',
+        address: clinic?.address ?? null,
+        phone: clinic?.phone ?? null,
+        email: clinic?.email ?? null,
+        taxId: clinic?.tax_id ?? null,
         role: ((membership as any).role ?? 'staff') as ClinicAccess['role'],
         status: ((sub as any)?.status ?? 'expired') as ClinicAccess['status'],
         trialEndsAt: (sub as any)?.trial_ends_at ?? null,

@@ -11,6 +11,10 @@ function access(partial: Partial<ClinicAccess>): ClinicAccess {
   return {
     clinicId: 'c1',
     clinicName: 'Sunrise',
+    address: null,
+    phone: null,
+    email: null,
+    taxId: null,
     role: 'clinic_admin',
     status: 'trialing',
     trialEndsAt: inDays(30),

@@ -10,6 +10,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatTableModule } from '@angular/material/table';
 import { InvoiceStore } from './invoice.store';
 import { BillingSettingsStore } from './billing-settings.store';
+import { ClinicContextService } from '../../core/clinic/clinic-context.service';
 import { computeTotals, isTwoDpClean, Invoice, InvoiceItem, Payment, PaymentKind } from './billing.model';
 
 @Component({
@@ -43,6 +44,20 @@ import { computeTotals, isTwoDpClean, Invoice, InvoiceItem, Payment, PaymentKind
 
       <mat-card appearance="outlined" class="card">
         <mat-card-content>
+          <!-- Letterhead. On screen it is a quiet header; on paper it is what makes this
+               a document from a real clinic rather than an anonymous number. -->
+          @if (clinic(); as c) {
+            <div class="letterhead">
+              <strong class="clinic-name">{{ c.clinicName }}</strong>
+              @if (c.address) { <span>{{ c.address }}</span> }
+              <span class="contact">
+                @if (c.phone) { <span>{{ c.phone }}</span> }
+                @if (c.email) { <span>{{ c.email }}</span> }
+                @if (c.taxId) { <span>Tax ID {{ c.taxId }}</span> }
+              </span>
+            </div>
+          }
+
           @if (inv.voided) { <p class="voided-banner">VOIDED</p> }
           <p><strong>Issue date:</strong> {{ inv.issueDate }}</p>
 
@@ -131,6 +146,11 @@ import { computeTotals, isTwoDpClean, Invoice, InvoiceItem, Payment, PaymentKind
     .error { color: var(--mat-sys-error); }
     .voided-banner { color: var(--mat-sys-error); font: var(--mat-sys-title-medium); }
     .state { display: grid; place-items: center; gap: 0.5rem; padding: 2rem; }
+    .letterhead { display: flex; flex-direction: column; gap: 0.15rem; margin-bottom: 1rem;
+      padding-bottom: 0.75rem; border-bottom: 1px solid var(--mat-sys-outline-variant);
+      color: var(--mat-sys-on-surface-variant); font: var(--mat-sys-body-small); }
+    .letterhead .clinic-name { color: var(--mat-sys-on-surface); font: var(--mat-sys-title-medium); }
+    .letterhead .contact { display: flex; flex-wrap: wrap; gap: 0.75rem; }
     @media print { .no-print { display: none !important; } }
   `,
 })
@@ -172,6 +192,10 @@ export class InvoiceDetailComponent {
     const n = Number(this.payAmount());
     return Number.isFinite(n) && Math.round(n * 100) >= 1 && isTwoDpClean(n);
   });
+
+  private clinicCtx = inject(ClinicContextService);
+  /** Letterhead source: the clinic profile every member already has in context. */
+  clinic = computed(() => this.clinicCtx.access());
 
   constructor() {
     this.reload();

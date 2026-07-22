@@ -18,6 +18,10 @@ function render(access: ClinicAccess | null): HTMLElement {
 const expiredTrial: ClinicAccess = {
   clinicId: 'c1',
   clinicName: 'Sunrise',
+  address: null,
+  phone: null,
+  email: null,
+  taxId: null,
   role: 'clinic_admin',
   status: 'trialing',
   trialEndsAt: '2026-07-21T00:00:00Z',

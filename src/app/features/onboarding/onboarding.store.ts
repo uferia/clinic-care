@@ -101,7 +101,7 @@ export class OnboardingStore {
         key: 'team',
         label: 'Invite your team',
         hint: 'They sign in with Google — no passwords to hand out.',
-        route: '/team',
+        route: '/clinic',
         done: c.members > 1,
       });
     }
