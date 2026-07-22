@@ -23,7 +23,7 @@ Deno.serve(async (req) => {
     .single();
   if (error) return json({ error: error.message }, 500);
 
-  const trialEnds = new Date(Date.now() + 14 * 86400_000).toISOString();
+  const trialEnds = new Date(Date.now() + 30 * 86400_000).toISOString();
   const { error: subErr } = await gate.admin
     .from('subscriptions')
     .insert({ clinic_id: clinic.id, status: 'trialing', trial_ends_at: trialEnds });

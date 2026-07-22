@@ -29,7 +29,7 @@ describe('accessGuard', () => {
 
   it('redirects to /blocked when the clinic subscription is not active', () => {
     const ctx = configure();
-    ctx.access.set({ clinicId: 'c1', clinicName: 'X', status: 'trialing', trialEndsAt: '2020-01-01T00:00:00Z', activeUntil: null });
+    ctx.access.set({ clinicId: 'c1', clinicName: 'X', role: 'staff', status: 'trialing', trialEndsAt: '2020-01-01T00:00:00Z', activeUntil: null });
     const r = run();
     expect(r).toBeInstanceOf(UrlTree);
     expect((r as UrlTree).toString()).toContain('/blocked');
@@ -38,7 +38,7 @@ describe('accessGuard', () => {
   it('allows navigation for an active clinic', () => {
     const ctx = configure();
     const future = new Date(Date.now() + 86400_000).toISOString();
-    ctx.access.set({ clinicId: 'c1', clinicName: 'X', status: 'trialing', trialEndsAt: future, activeUntil: null });
+    ctx.access.set({ clinicId: 'c1', clinicName: 'X', role: 'staff', status: 'trialing', trialEndsAt: future, activeUntil: null });
     expect(run()).toBe(true);
   });
 });

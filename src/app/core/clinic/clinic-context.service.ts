@@ -4,6 +4,7 @@ import { SUPABASE } from '../supabase.client';
 export interface ClinicAccess {
   clinicId: string;
   clinicName: string;
+  role: 'clinic_admin' | 'staff';
   status: 'trialing' | 'active' | 'expired';
   trialEndsAt: string | null;
   activeUntil: string | null;
@@ -18,6 +19,8 @@ export class ClinicContextService {
   readonly isSuperAdmin = signal(false);
 
   readonly hasClinic = computed(() => this.access() !== null);
+
+  readonly isClinicAdmin = computed(() => this.access()?.role === 'clinic_admin');
 
   readonly isActive = computed(() => {
     const a = this.access();
@@ -54,7 +57,7 @@ export class ClinicContextService {
       this.isSuperAdmin.set(!!sa);
       const { data: membership } = await this.supabase
         .from('memberships')
-        .select('clinic_id, clinics(name)')
+        .select('clinic_id, role, clinics(name)')
         .eq('user_id', uid)
         .maybeSingle();
       if (!membership) {
@@ -71,6 +74,7 @@ export class ClinicContextService {
       this.access.set({
         clinicId: (membership as any).clinic_id,
         clinicName: clinicName ?? 'Your clinic',
+        role: ((membership as any).role ?? 'staff') as ClinicAccess['role'],
         status: ((sub as any)?.status ?? 'expired') as ClinicAccess['status'],
         trialEndsAt: (sub as any)?.trial_ends_at ?? null,
         activeUntil: (sub as any)?.active_until ?? null,

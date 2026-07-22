@@ -1,11 +1,11 @@
 import { handleCors, json } from '../_shared/cors.ts';
-import { requireSuperAdmin } from '../_shared/auth.ts';
+import { requireMemberManager } from '../_shared/auth.ts';
 
 Deno.serve(async (req) => {
   const pre = handleCors(req);
   if (pre) return pre;
 
-  const gate = await requireSuperAdmin(req);
+  const gate = await requireMemberManager(req);
   if ('error' in gate) return json({ error: gate.error }, gate.status);
 
   let body: { clinic_id?: string; emails?: string[]; role?: string };
@@ -14,7 +14,10 @@ Deno.serve(async (req) => {
   } catch {
     return json({ error: 'invalid body' }, 400);
   }
-  const { clinic_id, emails, role = 'staff' } = body;
+  const { emails, role = 'staff' } = body;
+
+  // A super-admin targets any clinic; a clinic_admin is pinned to their own, whatever the body says.
+  const clinic_id = gate.isSuperAdmin ? body.clinic_id : gate.clinicId;
   if (!clinic_id) return json({ error: 'clinic_id is required' }, 400);
   if (!Array.isArray(emails) || emails.length === 0) return json({ error: 'emails required' }, 400);
   if (role !== 'clinic_admin' && role !== 'staff') return json({ error: 'invalid role' }, 400);

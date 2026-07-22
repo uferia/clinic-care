@@ -2,6 +2,7 @@ import { Routes } from '@angular/router';
 import { authGuard } from './core/auth/auth.guard';
 import { accessGuard } from './core/auth/access.guard';
 import { superAdminGuard } from './core/auth/super-admin.guard';
+import { clinicAdminGuard } from './core/auth/clinic-admin.guard';
 
 export const routes: Routes = [
   { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
@@ -67,6 +68,12 @@ export const routes: Routes = [
       { path: 'settings', loadComponent: () => import('./features/billing/billing-settings.component').then(m => m.BillingSettingsComponent) },
       { path: ':id', loadComponent: () => import('./features/billing/invoice-detail.component').then(m => m.InvoiceDetailComponent) },
     ],
+  },
+  {
+    path: 'team',
+    canActivate: [authGuard, accessGuard, clinicAdminGuard],
+    loadComponent: () =>
+      import('./features/team/team.component').then(m => m.TeamComponent),
   },
   {
     path: 'admin',
