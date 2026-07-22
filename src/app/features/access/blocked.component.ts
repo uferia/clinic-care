@@ -6,10 +6,11 @@ import { MatButtonModule } from '@angular/material/button';
 import { AuthService } from '../../core/auth/auth.service';
 import { ClinicContextService } from '../../core/clinic/clinic-context.service';
 import { activationMailto, supportEmail } from '../../shared/support-contact';
+import { SubscribeButtonComponent } from '../clinic/subscribe-button.component';
 
 @Component({
   selector: 'app-blocked',
-  imports: [MatCardModule, MatIconModule, MatButtonModule],
+  imports: [MatCardModule, MatIconModule, MatButtonModule, SubscribeButtonComponent],
   providers: [DatePipe],
   template: `
     <div class="wrap">
@@ -28,7 +29,11 @@ import { activationMailto, supportEmail } from '../../shared/support-contact';
           <p i18n="@@blocked.inactive">Your clinic's subscription is inactive. Contact us to restore access.</p>
         }
 
-        <a mat-flat-button [href]="mailto()">
+        @if (isClinicAdmin()) {
+          <app-subscribe-button [label]="subscribeLabel" />
+        }
+
+        <a mat-stroked-button [href]="mailto()">
           <mat-icon>mail</mat-icon>
           <ng-container i18n="@@blocked.emailUs">Email us to activate</ng-container>
         </a>
@@ -56,6 +61,9 @@ export class BlockedComponent {
   private dates = inject(DatePipe);
   protected access = computed(() => this.ctx.access());
   protected supportEmail = supportEmail;
+  // Only an admin can commit the clinic to a payment; staff still get the contact route.
+  protected isClinicAdmin = computed(() => this.ctx.isClinicAdmin());
+  protected subscribeLabel = $localize`:@@blocked.subscribeNow:Subscribe now`;
   protected mailto = computed(() => activationMailto(this.access()?.clinicName ?? 'my clinic'));
 
   /**

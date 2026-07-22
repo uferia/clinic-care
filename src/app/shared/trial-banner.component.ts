@@ -3,6 +3,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { ClinicContextService } from '../core/clinic/clinic-context.service';
 import { activationMailto } from './support-contact';
+import { SubscribeButtonComponent } from '../features/clinic/subscribe-button.component';
 
 /** Days of trial left at which we start warning. Earlier is noise; later is a surprise. */
 const WARN_FROM = 7;
@@ -13,7 +14,7 @@ const WARN_FROM = 7;
  */
 @Component({
   selector: 'app-trial-banner',
-  imports: [MatIconModule, MatButtonModule],
+  imports: [MatIconModule, MatButtonModule, SubscribeButtonComponent],
   template: `
     @if (show()) {
       <aside class="banner no-print" role="status">
@@ -28,7 +29,11 @@ const WARN_FROM = 7;
           }
           <ng-container i18n="@@trial.keepAccess">Activate to keep access — your data stays either way.</ng-container>
         </span>
-        <a mat-button [href]="mailto()" i18n="@@trial.activate">Activate</a>
+        @if (canSubscribe()) {
+          <app-subscribe-button [label]="subscribeLabel" />
+        } @else {
+          <a mat-button [href]="mailto()" i18n="@@trial.activate">Activate</a>
+        }
       </aside>
     }
   `,
@@ -60,4 +65,8 @@ export class TrialBannerComponent {
   });
 
   protected mailto = computed(() => activationMailto(this.ctx.access()?.clinicName ?? 'my clinic'));
+
+  // Staff see the banner but cannot pay; they get the email route instead.
+  protected canSubscribe = computed(() => this.ctx.isClinicAdmin());
+  protected subscribeLabel = $localize`:@@trial.subscribe:Subscribe`;
 }

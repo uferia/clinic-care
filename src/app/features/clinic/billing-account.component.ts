@@ -1,0 +1,91 @@
+import { Component, computed, inject, signal } from '@angular/core';
+import { DatePipe } from '@angular/common';
+import { MatCardModule } from '@angular/material/card';
+import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
+import { ClinicContextService } from '../../core/clinic/clinic-context.service';
+import { BillingAccountStore } from './billing-account.store';
+import { SubscribeButtonComponent } from './subscribe-button.component';
+
+@Component({
+  selector: 'app-billing-account',
+  imports: [DatePipe, MatCardModule, MatButtonModule, MatIconModule, SubscribeButtonComponent],
+  template: `
+    <mat-card appearance="outlined" class="section">
+      <h2 i18n="@@billing.planTitle">Plan</h2>
+
+      @if (access(); as a) {
+        <p class="status">
+          @if (a.status === 'trialing') {
+            <ng-container i18n="@@billing.onTrial">Free trial — {{ daysLeft() }} days left.</ng-container>
+          } @else if (a.status === 'active') {
+            <ng-container i18n="@@billing.active">Active until {{ a.activeUntil | date: 'mediumDate' }}.</ng-container>
+          } @else {
+            <ng-container i18n="@@billing.inactive">No active subscription.</ng-container>
+          }
+        </p>
+
+        @if (a.status === 'active') {
+          <p class="meta" i18n="@@billing.renews">
+            Renews automatically. Cancel any time — access runs to the end of the paid period.
+          </p>
+        } @else {
+          <p class="meta" i18n="@@billing.trialCredit">
+            Days left on your trial are added on top of your first paid month, so subscribing early
+            costs you nothing.
+          </p>
+        }
+
+        <div class="actions">
+          @if (a.status !== 'active') {
+            <app-subscribe-button />
+          }
+          <button mat-stroked-button [disabled]="busy()" (click)="manage()">
+            <mat-icon>receipt_long</mat-icon>
+            <ng-container i18n="@@billing.manage">Manage billing</ng-container>
+          </button>
+        </div>
+
+        <p class="meta" i18n="@@billing.portalHint">
+          Card details, invoices, and cancellation are handled by Stripe.
+        </p>
+        @if (error(); as message) { <p class="err">{{ message }}</p> }
+      }
+    </mat-card>
+  `,
+  styles: `
+    .section { padding: 1rem; }
+    .section h2 { font: var(--mat-sys-title-medium); margin: 0 0 0.5rem; }
+    .status { font: var(--mat-sys-body-large); margin: 0 0 0.25rem; }
+    .meta { color: var(--mat-sys-on-surface-variant); font: var(--mat-sys-body-small); margin: 0 0 0.75rem; }
+    .actions { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; margin-bottom: 0.75rem; }
+    .err { color: var(--mat-sys-error); font: var(--mat-sys-body-small); margin: 0; }
+  `,
+})
+export class BillingAccountComponent {
+  private ctx = inject(ClinicContextService);
+  private store = inject(BillingAccountStore);
+
+  protected access = computed(() => this.ctx.access());
+  protected daysLeft = computed(() => this.ctx.daysLeft() ?? 0);
+  protected busy = signal(false);
+  protected error = signal<string | null>(null);
+
+  async manage(): Promise<void> {
+    if (this.busy()) return;
+    this.busy.set(true);
+    this.error.set(null);
+    try {
+      window.location.href = await this.store.openPortal();
+    } catch (e) {
+      // The common case is a clinic that has never checked out, so there is no Stripe customer yet.
+      const message = e instanceof Error ? e.message : '';
+      this.error.set(
+        message.includes('no billing account')
+          ? $localize`:@@billing.noAccount:Subscribe first — there is no billing account to manage yet.`
+          : message || $localize`:@@billing.portalFailed:Could not open the billing portal.`,
+      );
+      this.busy.set(false);
+    }
+  }
+}
