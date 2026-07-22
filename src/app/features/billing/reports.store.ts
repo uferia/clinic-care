@@ -5,6 +5,9 @@ import { Payment, toPayment } from './billing.model';
 
 export interface OutstandingRow { id: string; number: string; patientName: string; balance: number; }
 
+/** A day-close payment carrying the invoice number an accountant reconciles against. */
+export interface DayPayment extends Payment { invoiceNumber: string; }
+
 @Service()
 export class ReportsStore {
   private supabase = inject(SUPABASE);
@@ -72,10 +75,15 @@ export class ReportsStore {
     params: () => ({ day: this._day() }),
     loader: async ({ params }) => {
       const { start, nextStart } = ReportsStore.dayBounds(params.day);
+      // The invoice number is embedded for the CSV export; the on-screen figures
+      // ignore it. Reconciling a bank deposit against payment UUIDs is useless.
       const { data, error } = await this.supabase
-        .from('payments').select('*').gte('paid_at', start).lt('paid_at', nextStart);
+        .from('payments').select('*, invoices(number)').gte('paid_at', start).lt('paid_at', nextStart);
       if (error) throw error;
-      return (data ?? []).map(toPayment);
+      return (data ?? []).map((r: any): DayPayment => ({
+        ...toPayment(r),
+        invoiceNumber: (Array.isArray(r.invoices) ? r.invoices[0]?.number : r.invoices?.number) ?? '',
+      }));
     },
   });
 
@@ -128,7 +136,7 @@ export class ReportsStore {
   // before ever touching `.value()`. With three independent resources in
   // this store, a failure in one (e.g. outstandingResource) must not take
   // down the computeds that depend on the other two.
-  dayPayments = computed<Payment[]>(() =>
+  dayPayments = computed<DayPayment[]>(() =>
     this.dayResource.hasValue() ? this.dayResource.value() : []);
   dayNet = computed(() => this.net(this.dayPayments()));
   // `dayPayments().length` conflates payments and refunds into one count —

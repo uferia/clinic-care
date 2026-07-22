@@ -8,7 +8,10 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatTableModule } from '@angular/material/table';
+import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
 import { toIsoDate } from '../../core/date.util';
+import { downloadCsv, toCsv } from '../../core/csv';
 import { ReportsStore } from './reports.store';
 
 @Component({
@@ -16,6 +19,7 @@ import { ReportsStore } from './reports.store';
   imports: [
     RouterLink, FormsModule, DecimalPipe, MatCardModule, MatDatepickerModule,
     MatFormFieldModule, MatInputModule, MatProgressBarModule, MatTableModule,
+    MatButtonModule, MatIconModule,
   ],
   providers: [ReportsStore],
   template: `
@@ -44,6 +48,13 @@ import { ReportsStore } from './reports.store';
             {{ store.dayPaymentCount() }} payment(s)
             @if (store.dayRefundCount()) { &middot; {{ store.dayRefundCount() }} refund(s) }
           </p>
+          <button
+            mat-stroked-button
+            [disabled]="!store.dayPayments().length"
+            (click)="exportDay()">
+            <mat-icon>download</mat-icon>
+            Export CSV
+          </button>
         </mat-card-content>
       </mat-card>
 
@@ -82,7 +93,16 @@ import { ReportsStore } from './reports.store';
 
     <mat-card appearance="outlined" class="card">
       <mat-card-content>
-        <h2>Outstanding balances — {{ store.outstandingTotal() | number: '1.2-2' }}</h2>
+        <div class="section-head">
+          <h2>Outstanding balances — {{ store.outstandingTotal() | number: '1.2-2' }}</h2>
+          <button
+            mat-stroked-button
+            [disabled]="!store.outstanding().length"
+            (click)="exportOutstanding()">
+            <mat-icon>download</mat-icon>
+            Export CSV
+          </button>
+        </div>
         @if (store.outstanding().length) {
           <table mat-table [dataSource]="store.outstanding()">
             <ng-container matColumnDef="number">
@@ -109,6 +129,8 @@ import { ReportsStore } from './reports.store';
     h1 { font: var(--mat-sys-headline-small); margin: 0; }
     h2 { font: var(--mat-sys-title-small); margin: 0 0 0.5rem; }
     .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr)); gap: 1rem; margin-bottom: 1rem; }
+    .section-head { display: flex; align-items: baseline; gap: 1rem; }
+    .section-head h2 { flex: 1; }
     .card { max-width: 48rem; }
     .range { display: flex; gap: 0.5rem; }
     .figure { font: var(--mat-sys-headline-medium); margin: 0.5rem 0 0; }
@@ -165,5 +187,33 @@ export class BillingReportsComponent {
     const to = this.to();
     if (!from || !to) return;
     this.store.setRange(toIsoDate(from), toIsoDate(to));
+  }
+
+  /**
+   * Amounts are written unformatted (no thousands separator, plain minus for a
+   * refund) so a spreadsheet reads them as numbers rather than text.
+   */
+  exportDay() {
+    const day = this.day();
+    if (!day) return;
+    const rows = this.store.dayPayments().map(p => [
+      p.paidAt,
+      p.invoiceNumber,
+      p.kind,
+      p.kind === 'refund' ? -p.amount : p.amount,
+      p.note,
+    ]);
+    downloadCsv(
+      `cash-close-${toIsoDate(day)}.csv`,
+      toCsv(['Paid at', 'Invoice', 'Kind', 'Amount', 'Note'], rows),
+    );
+  }
+
+  exportOutstanding() {
+    const rows = this.store.outstanding().map(o => [o.number, o.patientName, o.balance]);
+    downloadCsv(
+      `outstanding-${toIsoDate(new Date())}.csv`,
+      toCsv(['Invoice', 'Patient', 'Balance'], rows),
+    );
   }
 }
