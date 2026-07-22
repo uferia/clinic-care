@@ -47,5 +47,9 @@ Thumbs.db
 supabase/.temp
 supabase/.branches
 
+# Local secrets (edge function env). Never commit; see .env.example.
+.env
+.env.local
+
 # Playwright MCP artifacts
 .playwright-mcp/

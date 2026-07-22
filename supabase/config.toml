@@ -392,8 +392,10 @@ inspector_port = 8083
 # The Deno major version to use.
 deno_version = 2
 
-# [edge_runtime.secrets]
-# secret_key = "env(SECRET_VALUE)"
+[edge_runtime.secrets]
+# Values resolved from the gitignored root `.env` file (see .env.example).
+GCS_BUCKET = "env(GCS_BUCKET)"
+GCS_SA_KEY = "env(GCS_SA_KEY)"
 
 [analytics]
 enabled = true
