@@ -70,6 +70,19 @@ describe('PatientDocumentsStore', () => {
     expect(client.functions.invoke).not.toHaveBeenCalled();
   });
 
+  it('upload(): surfaces the edge function error body, not the generic message', async () => {
+    // functions.invoke() reports a generic message and hides the real reason in `context`.
+    const httpError = Object.assign(new Error('Edge Function returned a non-2xx status code'), {
+      context: new Response(JSON.stringify({ error: 'unsupported type' }), { status: 400 }),
+    });
+    const client = fakeClient(() => Promise.resolve({ data: null, error: httpError }));
+    const store = setup(client);
+    store.setPatient('p1');
+    const file = new File([new Uint8Array([1])], 'x.png', { type: 'image/png' });
+    await expect(store.upload(file)).rejects.toThrow('unsupported type');
+    expect((globalThis as any).fetch).not.toHaveBeenCalled();
+  });
+
   it('upload(): no metadata insert when GCS PUT fails', async () => {
     (globalThis as any).fetch = vi.fn(() => Promise.resolve({ ok: false, status: 403 }));
     const client = fakeClient((_n: string, opts: any) =>

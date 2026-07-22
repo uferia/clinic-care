@@ -7,6 +7,25 @@ interface SignUploadResponse {
   objectPath: string;
 }
 
+/**
+ * functions.invoke() reports every failure as "Edge Function returned a non-2xx
+ * status code" and hides the function's own `{ error }` body in `context`.
+ * Unwrap it so the UI can show the real reason.
+ */
+async function edgeError(error: unknown): Promise<Error> {
+  const context = (error as { context?: unknown }).context;
+  if (context instanceof Response) {
+    try {
+      const body = await context.clone().json();
+      const message = (body as { error?: string }).error;
+      if (message) return new Error(message);
+    } catch {
+      // Body was not JSON — fall back to the original error.
+    }
+  }
+  return error instanceof Error ? error : new Error('Request failed.');
+}
+
 @Service()
 export class PatientDocumentsStore {
   private supabase = inject(SUPABASE);
@@ -45,7 +64,7 @@ export class PatientDocumentsStore {
     const { data, error } = await this.supabase.functions.invoke('gcs-doc', {
       body: { action: 'sign-upload', patientId, fileName: file.name, contentType: file.type, sizeBytes: file.size },
     });
-    if (error) throw error;
+    if (error) throw await edgeError(error);
     const { uploadUrl, objectPath } = data as SignUploadResponse;
 
     // 2. Upload bytes directly to GCS. The signed URL pins the content type.
@@ -73,7 +92,7 @@ export class PatientDocumentsStore {
     const { data, error } = await this.supabase.functions.invoke('gcs-doc', {
       body: { action: 'sign-download', documentId: doc.id },
     });
-    if (error) throw error;
+    if (error) throw await edgeError(error);
     return (data as { downloadUrl: string }).downloadUrl;
   }
 
@@ -81,7 +100,7 @@ export class PatientDocumentsStore {
     const { error } = await this.supabase.functions.invoke('gcs-doc', {
       body: { action: 'delete', documentId: doc.id },
     });
-    if (error) throw error;
+    if (error) throw await edgeError(error);
     this.docsResource.reload();
   }
 }
