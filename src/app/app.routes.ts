@@ -57,6 +57,18 @@ export const routes: Routes = [
     ],
   },
   {
+    path: 'billing',
+    canActivate: [authGuard, accessGuard],
+    children: [
+      { path: '', loadComponent: () => import('./features/billing/invoice-list.component').then(m => m.InvoiceListComponent) },
+      { path: 'new', loadComponent: () => import('./features/billing/invoice-form.component').then(m => m.InvoiceFormComponent) },
+      { path: 'catalog', loadComponent: () => import('./features/billing/service-list.component').then(m => m.ServiceListComponent) },
+      { path: 'reports', loadComponent: () => import('./features/billing/billing-reports.component').then(m => m.BillingReportsComponent) },
+      { path: 'settings', loadComponent: () => import('./features/billing/billing-settings.component').then(m => m.BillingSettingsComponent) },
+      { path: ':id', loadComponent: () => import('./features/billing/invoice-detail.component').then(m => m.InvoiceDetailComponent) },
+    ],
+  },
+  {
     path: 'admin',
     canActivate: [authGuard, superAdminGuard],
     children: [

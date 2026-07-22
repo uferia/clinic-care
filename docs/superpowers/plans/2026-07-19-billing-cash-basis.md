@@ -17,6 +17,9 @@
 - Money columns are `numeric(12,2)`; percentages `numeric(5,2)`. PostgREST may serialize numeric as string — mappers coerce with `Number(...)`.
 - **Test command:** `npx ng test --watch=false`. The project has NO standalone vitest config — the runner is the `@angular/build:unit-test` builder (vitest under the hood, setup file `src/test-setup.ts`). `npx vitest run` does NOT work. The whole suite runs each time; when a step says "verify it fails", look for the new spec's failure inside the full-suite output (existing specs stay green — the pre-existing suite is 56 passing).
 - **Build command:** `npx ng build`.
+- **Error surfacing — do NOT use `MatSnackBar`.** Verified: the repo contains zero `MatSnackBar` usages. The established convention is an inline error signal rendered in the template — `err = signal('')` in the class, `@if (err()) { <p class="error">{{ err() }}</p> }` in the template (see `src/app/features/patients/patient-documents.component.ts`). The Task 6, 9, and 10 code blocks below were written with `MatSnackBar` before this was checked; **ignore that part of those blocks** and use the inline-signal convention instead, dropping the `MatSnackBar` import and injection. Everything else in those blocks stands.
+- **Store mutation methods throw.** `add`/`update`/`remove`/`create`/`addPayment`/`void`/`save` reject on failure rather than returning an error object. Every call site needs a `catch` that sets the error signal — a bare `try/finally` leaves the rejection unhandled and the user sees nothing.
+- **Pipes must be imported.** Standalone components need `DecimalPipe`, `SlicePipe`, etc. in their `imports:` array to use `| number`, `| slice`. Several code blocks below omit them; add what the template actually uses.
 - Commits: author as the user only. Do NOT add a `Co-Authored-By: Claude` trailer (per project convention). Conventional Commit prefixes (`feat`/`test`/`chore`).
 - Rounding rule (must match between SQL view and the TS preview helper): `round(x, 2)` half-up per component: discount% and tax each rounded to 2dp independently, then `total = subtotal - discount + tax`.
 
@@ -29,6 +32,13 @@
 
 **Interfaces:**
 - Produces (relied on by every later task): tables `services`, `invoices`, `invoice_items`, `payments`, `billing_settings`, `billing_counters`; view `invoice_balances` with columns `id, clinic_id, patient_id, appointment_id, number, issue_date, voided, discount_type, discount_value, tax_rate, notes, created_at, subtotal, discount, tax, total, paid, balance, status`.
+
+> **AMENDED AFTER REVIEW (commit `1a9aaac`).** The shipped `0007_billing.sql` also contains, by owner decision:
+> - a `before delete` trigger on `invoices` that raises if any `payments` row references it (an invoice with payments can only be voided; paymentless invoices stay deletable);
+> - CHECK constraints `discount_value >= 0` and `discount_type <> 'percent' or discount_value <= 100`.
+>
+> Confirmed intended, do NOT change: a zero-total invoice reports status `unpaid`. Explicitly declined: an over-refund guard — a refund exceeding cumulative payments is representable and makes `paid` negative.
+> The migration file is the source of truth; the SQL below is the pre-amendment version.
 
 - [ ] **Step 1: Write the migration**
 
@@ -649,7 +659,12 @@ export interface CreatePaymentDto {
 }
 
 // Mappers (read)
-export function toInvoice(row: InvoiceRow): Invoice {
+// NOTE: the parameter is `Omit<InvoiceRow, 'created_by'>`, not `InvoiceRow`.
+// `toInvoice` never reads `created_by`, and `toInvoiceBalance` passes it an
+// `InvoiceBalanceRow` — which models the view, and the view does not select
+// `created_by`. Widening the parameter to the columns actually read lets both
+// call sites typecheck honestly. Do not narrow it back to `InvoiceRow`.
+export function toInvoice(row: Omit<InvoiceRow, 'created_by'>): Invoice {
   return {
     id: row.id,
     clinicId: row.clinic_id,
