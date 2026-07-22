@@ -5,7 +5,7 @@
 
   @if (auth.user(); as user) {
     @if (clinic.isActive()) {
-      <nav class="main-nav" aria-label="Main">
+      <nav class="main-nav" i18n-aria-label="@@nav.main" aria-label="Main">
         @for (link of links; track link.path) {
           <a mat-button [routerLink]="link.path" routerLinkActive="active-link">
             <mat-icon>{{ link.icon }}</mat-icon>
@@ -18,9 +18,9 @@
     @if (clinic.isActive() && clinic.access(); as plan) {
       <span class="plan-badge" [class.trial]="plan.status === 'trialing'">
         @if (plan.status === 'trialing') {
-          Trial · {{ clinic.daysLeft() }}d left
+          <ng-container i18n="@@plan.trialDaysLeft">Trial · {{ clinic.daysLeft() }}d left</ng-container>
         } @else if (plan.status === 'active') {
-          Active until {{ plan.activeUntil | date: 'mediumDate' }}
+          <ng-container i18n="@@plan.activeUntil">Active until {{ plan.activeUntil | date: 'mediumDate' }}</ng-container>
         }
       </span>
     }
@@ -28,14 +28,14 @@
     @if (clinic.isActive() && clinic.isClinicAdmin()) {
       <a mat-button routerLink="/clinic" routerLinkActive="active-link" class="admin-link">
         <mat-icon>store</mat-icon>
-        <span class="nav-text">Clinic</span>
+        <span class="nav-text" i18n="@@nav.clinic">Clinic</span>
       </a>
     }
 
     @if (clinic.isSuperAdmin()) {
       <a mat-button routerLink="/admin" routerLinkActive="active-link" class="admin-link">
         <mat-icon>admin_panel_settings</mat-icon>
-        <span class="nav-text">Admin</span>
+        <span class="nav-text" i18n="@@nav.admin">Admin</span>
       </a>
     }
 
@@ -47,7 +47,7 @@
         referrerpolicy="no-referrer" />
       <span class="user-name">{{ user.name }}</span>
     </span>
-    <button mat-icon-button (click)="logout()" aria-label="Sign out">
+    <button mat-icon-button (click)="logout()" i18n-aria-label="@@action.signOut" aria-label="Sign out">
       <mat-icon>logout</mat-icon>
     </button>
   }

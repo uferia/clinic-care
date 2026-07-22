@@ -91,6 +91,37 @@ create form, and a per-clinic detail page to add members and set the subscriptio
 Reads use RLS (super-admins can read every clinic/subscription/membership); writes
 go through the gated edge functions using the service-role key server-side.
 
+## Translations (i18n)
+
+The app ships in English only. The scaffolding to translate it is in place, so a
+translator can be handed a file whenever a non-English clinic needs one — but no
+translation exists yet, and the production build is a single English bundle.
+
+    npm run i18n:extract      # writes src/locale/messages.xlf
+
+`@angular/localize/init` is loaded via the `polyfills` entry on the build target
+in `angular.json`; the unit-test target inherits it, which is why no spec imports
+it directly.
+
+**Marking convention.** Every user-facing string carries an explicit, stable ID —
+`i18n="@@blocked.title"` in templates, `$localize\`:@@nav.patients:Patients\`` in
+TypeScript. Explicit IDs mean rewording the English source does not orphan an
+existing translation. Attributes use the `i18n-` prefix (`i18n-aria-label`,
+`i18n-placeholder`); a string that only lives in TypeScript (a nav label, an error
+message) needs `$localize`, since the template attribute cannot reach it.
+
+**Coverage so far:** the app shell, the no-access / blocked / trial-banner screens.
+Those are the screens a clinic hits before it can do anything, so they were marked
+first. The remaining feature screens — patients, doctors, appointments, billing,
+admin, clinic settings, onboarding — are **not yet marked**; their strings simply do
+not appear in `messages.xlf` until they are. Mark them the same way, then re-run
+the extract.
+
+**Adding a locale** (when a translation actually exists): copy `messages.xlf` to
+`messages.<locale>.xlf`, fill in each `<target>`, then add an `i18n.locales` entry
+and a `localize` build option in `angular.json`. That produces one bundle per
+locale and changes the deploy layout, so it is deliberately not configured yet.
+
 ## Additional Resources
 
 For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.

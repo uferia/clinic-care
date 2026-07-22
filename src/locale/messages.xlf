@@ -1,0 +1,232 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<xliff version="1.2" xmlns="urn:oasis:names:tc:xliff:document:1.2">
+  <file source-language="en-US" datatype="plaintext" original="ng2.template">
+    <body>
+      <trans-unit id="nav.main" datatype="html">
+        <source>Main</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/app.html</context>
+          <context context-type="linenumber">9</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="plan.trialDaysLeft" datatype="html">
+        <source>Trial · <x id="INTERPOLATION" equiv-text="{{ clinic.daysLeft() }}"/>d left</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/app.html</context>
+          <context context-type="linenumber">21,22</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="plan.activeUntil" datatype="html">
+        <source>Active until <x id="INTERPOLATION" equiv-text="{{ plan.activeUntil | date: &apos;mediumDate&apos; }}"/></source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/app.html</context>
+          <context context-type="linenumber">23,24</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="nav.clinic" datatype="html">
+        <source>Clinic</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/app.html</context>
+          <context context-type="linenumber">31,33</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="nav.admin" datatype="html">
+        <source>Admin</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/app.html</context>
+          <context context-type="linenumber">38,40</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="action.signOut" datatype="html">
+        <source>Sign out</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/app.html</context>
+          <context context-type="linenumber">50,51</context>
+        </context-group>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/access/blocked.component.ts</context>
+          <context context-type="linenumber">39,40</context>
+        </context-group>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/access/no-access.component.ts</context>
+          <context context-type="linenumber">23,24</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="nav.dashboard" datatype="html">
+        <source>Dashboard</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/app.ts</context>
+          <context context-type="linenumber">33</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="nav.patients" datatype="html">
+        <source>Patients</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/app.ts</context>
+          <context context-type="linenumber">34</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="nav.doctors" datatype="html">
+        <source>Doctors</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/app.ts</context>
+          <context context-type="linenumber">35</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="nav.appointments" datatype="html">
+        <source>Appointments</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/app.ts</context>
+          <context context-type="linenumber">36</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="nav.billing" datatype="html">
+        <source>Billing</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/app.ts</context>
+          <context context-type="linenumber">37</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="blocked.title" datatype="html">
+        <source>Subscription needed</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/access/blocked.component.ts</context>
+          <context context-type="linenumber">18,19</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="blocked.trialEnded" datatype="html">
+        <source>Your free trial for <x id="START_TAG_STRONG" ctype="x-strong" equiv-text="&lt;strong&gt;"/><x id="INTERPOLATION" equiv-text="{{ a.clinicName }}"/><x id="CLOSE_TAG_STRONG" ctype="x-strong" equiv-text="&lt;/strong&gt;"/> ended<x id="INTERPOLATION_1" equiv-text="{{ endedOn() }}"/>. Contact us to activate your subscription.</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/access/blocked.component.ts</context>
+          <context context-type="linenumber">21,22</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="blocked.planEnded" datatype="html">
+        <source>The subscription for <x id="START_TAG_STRONG" ctype="x-strong" equiv-text="&lt;strong&gt;"/><x id="INTERPOLATION" equiv-text="{{ a.clinicName }}"/><x id="CLOSE_TAG_STRONG" ctype="x-strong" equiv-text="&lt;/strong&gt;"/> has ended<x id="INTERPOLATION_1" equiv-text="{{ endedOn() }}"/>. Renew to restore access.</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/access/blocked.component.ts</context>
+          <context context-type="linenumber">24,25</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="blocked.inactive" datatype="html">
+        <source>Your clinic&apos;s subscription is inactive. Contact us to restore access.</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/access/blocked.component.ts</context>
+          <context context-type="linenumber">28,31</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="blocked.emailUs" datatype="html">
+        <source>Email us to activate</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/access/blocked.component.ts</context>
+          <context context-type="linenumber">33,34</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="blocked.orWrite" datatype="html">
+        <source>Or write to <x id="INTERPOLATION" equiv-text="{{ supportEmail }}"/> — your data is safe and waiting.</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/access/blocked.component.ts</context>
+          <context context-type="linenumber">35,37</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="noAccess.title" datatype="html">
+        <source>No clinic access</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/access/no-access.component.ts</context>
+          <context context-type="linenumber">19,20</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="noAccess.body" datatype="html">
+        <source>Your account isn&apos;t linked to a clinic yet. Ask your clinic administrator to add your email, then sign in again.</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/access/no-access.component.ts</context>
+          <context context-type="linenumber">20,21</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="signup.title" datatype="html">
+        <source>Starting a new clinic?</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/access/no-access.component.ts</context>
+          <context context-type="linenumber">29,30</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="signup.body" datatype="html">
+        <source>Register now and get a 30-day free trial. No approval needed.</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/access/no-access.component.ts</context>
+          <context context-type="linenumber">30,31</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="signup.clinicName" datatype="html">
+        <source>Clinic name</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/access/no-access.component.ts</context>
+          <context context-type="linenumber">32,34</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="signup.clinicNameHint" datatype="html">
+        <source>e.g. Sunrise Family Clinic</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/access/no-access.component.ts</context>
+          <context context-type="linenumber">39,41</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="signup.creating" datatype="html">
+        <source>Creating…</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/access/no-access.component.ts</context>
+          <context context-type="linenumber">44,45</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="signup.create" datatype="html">
+        <source>Create clinic</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/access/no-access.component.ts</context>
+          <context context-type="linenumber">46,48</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="signup.failed" datatype="html">
+        <source>Could not create the clinic.</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/access/no-access.component.ts</context>
+          <context context-type="linenumber">86</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="trial.endsToday" datatype="html">
+        <source>Your free trial ends today.</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/trial-banner.component.ts</context>
+          <context context-type="linenumber">23,24</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="trial.endsTomorrow" datatype="html">
+        <source>Your free trial ends tomorrow.</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/trial-banner.component.ts</context>
+          <context context-type="linenumber">25,26</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="trial.endsInDays" datatype="html">
+        <source>Your free trial ends in <x id="INTERPOLATION" equiv-text="{{ daysLeft() }}"/> days.</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/trial-banner.component.ts</context>
+          <context context-type="linenumber">27,28</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="trial.keepAccess" datatype="html">
+        <source>Activate to keep access — your data stays either way.</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/trial-banner.component.ts</context>
+          <context context-type="linenumber">29,30</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="trial.activate" datatype="html">
+        <source>Activate</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/trial-banner.component.ts</context>
+          <context context-type="linenumber">31,34</context>
+        </context-group>
+      </trans-unit>
+    </body>
+  </file>
+</xliff>

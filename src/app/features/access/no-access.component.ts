@@ -16,30 +16,35 @@ import { RegistrationStore } from './registration.store';
     <div class="wrap">
       <mat-card appearance="outlined" class="card">
         <mat-icon class="mark">block</mat-icon>
-        <h1>No clinic access</h1>
-        <p>Your account isn't linked to a clinic yet. Ask your clinic administrator to add your email, then sign in again.</p>
+        <h1 i18n="@@noAccess.title">No clinic access</h1>
+        <p i18n="@@noAccess.body">Your account isn't linked to a clinic yet. Ask your clinic administrator to add your email, then sign in again.</p>
         <button mat-stroked-button (click)="auth.logout()">
           <mat-icon>logout</mat-icon>
-          Sign out
+          <ng-container i18n="@@action.signOut">Sign out</ng-container>
         </button>
       </mat-card>
 
       <mat-card appearance="outlined" class="card">
         <mat-icon class="mark accent">add_business</mat-icon>
-        <h2>Starting a new clinic?</h2>
-        <p>Register now and get a 30-day free trial. No approval needed.</p>
+        <h2 i18n="@@signup.title">Starting a new clinic?</h2>
+        <p i18n="@@signup.body">Register now and get a 30-day free trial. No approval needed.</p>
         <mat-form-field appearance="outline" class="wide">
-          <mat-label>Clinic name</mat-label>
+          <mat-label i18n="@@signup.clinicName">Clinic name</mat-label>
           <input
             matInput
             [value]="name()"
             (input)="name.set($any($event.target).value)"
             (keyup.enter)="create()"
+            i18n-placeholder="@@signup.clinicNameHint"
             placeholder="e.g. Sunrise Family Clinic" />
         </mat-form-field>
         <button mat-flat-button (click)="create()" [disabled]="!name().trim() || busy()">
           <mat-icon>rocket_launch</mat-icon>
-          {{ busy() ? 'Creating…' : 'Create clinic' }}
+          @if (busy()) {
+            <ng-container i18n="@@signup.creating">Creating…</ng-container>
+          } @else {
+            <ng-container i18n="@@signup.create">Create clinic</ng-container>
+          }
         </button>
         @if (error()) { <div class="err">{{ error() }}</div> }
       </mat-card>
@@ -78,7 +83,7 @@ export class NoAccessComponent {
       await this.ctx.load();
       await this.router.navigate(['/dashboard']);
     } catch (e) {
-      this.error.set(e instanceof Error ? e.message : 'Could not create the clinic.');
+      this.error.set(e instanceof Error ? e.message : $localize`:@@signup.failed:Could not create the clinic.`);
     } finally {
       this.busy.set(false);
     }

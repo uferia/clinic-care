@@ -1,3 +1,8 @@
+// `$localize` (the global that i18n-marked templates compile down to) is
+// installed via the `polyfills` entry on the build AND test targets in
+// angular.json — importing it here instead triggers Angular's
+// "Direct import of '@angular/localize/init'" warning.
+
 // Node 26 ships an experimental global `localStorage` that is unusable without
 // the --localstorage-file flag and shadows jsdom's Storage, so any spec touching
 // localStorage throws. Install a deterministic in-memory Storage for tests.

@@ -20,15 +20,15 @@ const WARN_FROM = 7;
         <mat-icon>schedule</mat-icon>
         <span>
           @if (daysLeft() === 0) {
-            Your free trial ends today.
+            <ng-container i18n="@@trial.endsToday">Your free trial ends today.</ng-container>
           } @else if (daysLeft() === 1) {
-            Your free trial ends tomorrow.
+            <ng-container i18n="@@trial.endsTomorrow">Your free trial ends tomorrow.</ng-container>
           } @else {
-            Your free trial ends in {{ daysLeft() }} days.
+            <ng-container i18n="@@trial.endsInDays">Your free trial ends in {{ daysLeft() }} days.</ng-container>
           }
-          Activate to keep access — your data stays either way.
+          <ng-container i18n="@@trial.keepAccess">Activate to keep access — your data stays either way.</ng-container>
         </span>
-        <a mat-button [href]="mailto()">Activate</a>
+        <a mat-button [href]="mailto()" i18n="@@trial.activate">Activate</a>
       </aside>
     }
   `,

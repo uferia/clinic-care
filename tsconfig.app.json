@@ -3,7 +3,11 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
-    "types": []
+    // $localize is a global installed by @angular/localize/init (see the
+    // polyfills entry in angular.json); this makes TypeScript aware of it.
+    "types": [
+      "@angular/localize"
+    ]
   },
   "include": [
     "src/**/*.ts"

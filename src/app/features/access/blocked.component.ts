@@ -15,28 +15,28 @@ import { activationMailto, supportEmail } from '../../shared/support-contact';
     <div class="wrap">
       <mat-card appearance="outlined" class="card">
         <mat-icon class="mark">lock_clock</mat-icon>
-        <h1>Subscription needed</h1>
+        <h1 i18n="@@blocked.title">Subscription needed</h1>
         @if (access(); as a) {
           @if (a.status === 'trialing') {
-            <p>Your free trial for <strong>{{ a.clinicName }}</strong> ended{{ endedOn() }}.
+            <p i18n="@@blocked.trialEnded">Your free trial for <strong>{{ a.clinicName }}</strong> ended{{ endedOn() }}.
               Contact us to activate your subscription.</p>
           } @else {
-            <p>The subscription for <strong>{{ a.clinicName }}</strong> has ended{{ endedOn() }}.
+            <p i18n="@@blocked.planEnded">The subscription for <strong>{{ a.clinicName }}</strong> has ended{{ endedOn() }}.
               Renew to restore access.</p>
           }
         } @else {
-          <p>Your clinic's subscription is inactive. Contact us to restore access.</p>
+          <p i18n="@@blocked.inactive">Your clinic's subscription is inactive. Contact us to restore access.</p>
         }
 
         <a mat-flat-button [href]="mailto()">
           <mat-icon>mail</mat-icon>
-          Email us to activate
+          <ng-container i18n="@@blocked.emailUs">Email us to activate</ng-container>
         </a>
-        <p class="meta">Or write to {{ supportEmail }} — your data is safe and waiting.</p>
+        <p class="meta" i18n="@@blocked.orWrite">Or write to {{ supportEmail }} — your data is safe and waiting.</p>
 
         <button mat-stroked-button (click)="auth.logout()">
           <mat-icon>logout</mat-icon>
-          Sign out
+          <ng-container i18n="@@action.signOut">Sign out</ng-container>
         </button>
       </mat-card>
     </div>
