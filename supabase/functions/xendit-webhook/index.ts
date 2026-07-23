@@ -18,9 +18,17 @@
 //
 // UPDATE (2026-07-23, real sandbox call against POST /recurring/plans — this GET endpoint
 // returns the same plan object shape): `reference_id` and `customer_id` ARE confirmed as the
-// real field names on the plan object. `schedule.anchor_date` also genuinely exists at that
-// path, but its VALUE is suspect for this purpose — see the VERIFY comment below, which is now
-// about semantics rather than field-name existence.
+// real field names on the plan object.
+//
+// UPDATE 2 (2026-07-23, real sandbox test payment completed, plan + GET .../cycles both
+// fetched afterward): `schedule.anchor_date` is CONFIRMED WRONG for periodEnd — a completed
+// payment left it byte-for-byte unchanged from schedule-creation time (it's schedule-level, not
+// per-plan, and schedules are reused across clinics). The real period-end lives on the
+// per-plan cycles resource: GET /recurring/plans/{id}/cycles returns a `data` array of cycle
+// objects; the not-yet-attempted one (`status: 'SCHEDULED'`) carries `scheduled_timestamp`
+// equal to exactly one interval after the schedule's anchor_date — that IS the next billing
+// date, i.e. the point access should be considered paid through. planDetailsFor below now reads
+// periodEnd from there instead.
 // ---------------------------------------------------------------------------------------------
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
@@ -61,9 +69,9 @@ function safeEqual(a: string, b: string): boolean {
  * same defensive pattern the Stripe webhook used (`stripe.subscriptions.retrieve`).
  *
  * The SDK has no Recurring module (see the file-level comment above), so this calls Xendit's REST
- * API directly — same Basic-auth pattern as the POST in ../create-xendit-session/index.ts. Field
- * paths below are drafted from design research and MUST be confirmed per Step 1 of this task
- * before this is trusted against real money.
+ * API directly — same Basic-auth pattern as the POST in ../create-xendit-session/index.ts.
+ * `reference_id`/`customer_id` and the cycles-based periodEnd are confirmed against a real
+ * completed sandbox payment (see file header, 2026-07-23).
  */
 async function planDetailsFor(
   recurringPlanId: string,
@@ -72,8 +80,10 @@ async function planDetailsFor(
   // xendit-node@7 already defaults `xenditURL` to this same value internally, so this can never
   // actually be undefined — no `?? '...'` fallback needed here.
   const xenditUrl = xendit.opts.xenditURL;
+  const authHeader = { Authorization: `Basic ${btoa(`${xendit.opts.secretKey}:`)}` };
+
   const res = await fetch(`${xenditUrl}/recurring/plans/${recurringPlanId}`, {
-    headers: { Authorization: `Basic ${btoa(`${xendit.opts.secretKey}:`)}` },
+    headers: authHeader,
   });
   // A non-JSON body (a gateway 502, a WAF block page, etc.) must not itself throw here — that
   // would mask the real HTTP status behind a confusing SyntaxError. Parse defensively, then check
@@ -81,27 +91,33 @@ async function planDetailsFor(
   const plan = await res.json().catch(() => null) as {
     reference_id?: string;
     customer_id?: string;
-    schedule?: { anchor_date?: string };
     message?: string;
   } | null;
   if (!res.ok) {
     throw new Error(plan?.message ?? `Xendit recurring plan lookup failed (${res.status})`);
   }
+
+  // periodEnd comes from the cycles sub-resource, not the plan or schedule object — see file
+  // header. The not-yet-attempted cycle's scheduled_timestamp is the next billing date, i.e.
+  // the point access should be considered paid through.
+  const cyclesRes = await fetch(`${xenditUrl}/recurring/plans/${recurringPlanId}/cycles`, {
+    headers: authHeader,
+  });
+  const cyclesBody = await cyclesRes.json().catch(() => null) as {
+    data?: { status?: string; scheduled_timestamp?: string }[];
+    message?: string;
+  } | null;
+  if (!cyclesRes.ok) {
+    throw new Error(cyclesBody?.message ?? `Xendit cycles lookup failed (${cyclesRes.status})`);
+  }
+  const nextScheduled = (cyclesBody?.data ?? [])
+    .filter((c) => c.status === 'SCHEDULED' && c.scheduled_timestamp)
+    .sort((a, b) => new Date(a.scheduled_timestamp!).getTime() - new Date(b.scheduled_timestamp!).getTime())[0];
+
   return {
-    // Confirmed field name via a real POST /recurring/plans response (2026-07-23).
     clinicId: plan?.reference_id ?? null,
-    // Confirmed field name via the same real response.
     customerId: plan?.customer_id ?? null,
-    // VERIFY: `schedule.anchor_date` exists at this path (confirmed), but its semantics are
-    // suspect: a real sandbox schedule-creation call showed anchor_date equal to the SCHEDULE's
-    // own creation time, not a per-plan value — and schedules are explicitly reused across
-    // clinics/plans (see .env.example), so every plan referencing the same schedule_id would read
-    // the identical anchor_date. That cannot be a valid per-clinic period-end. The real field is
-    // likely on a per-plan "cycle" resource instead (e.g. GET /recurring/plans/{id}/cycles),
-    // unconfirmed because no payment has completed yet in this environment to produce one. Do NOT
-    // trust this value against real money until a completed test payment's cycle data is captured
-    // and this is replaced with the correct source.
-    periodEnd: plan?.schedule?.anchor_date ?? null,
+    periodEnd: nextScheduled?.scheduled_timestamp ?? null,
   };
 }
 
