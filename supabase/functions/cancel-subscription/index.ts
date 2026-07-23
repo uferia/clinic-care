@@ -2,27 +2,18 @@
 // Step 1 findings (live confirmation attempt, 2026-07-23):
 //
 // docs.xendit.co/apidocs/update-recurring-plan is JS-rendered and did not return usable content
-// to an automated fetch, same as every prior task in this plan. This is a known, already-accepted
-// limitation of this environment (see Tasks 3/4's header comments) — not re-litigated here.
+// to an automated fetch, same as every prior task in this plan. What replaced it: a real
+// sandbox test session against a live test-mode account, walking the actual API by hand.
 //
-// What IS newly confirmed, carried over from Tasks 3/4's investigation of the actual
-// xendit-node@7.0.0 source (tag v7.0.0, on GitHub): the installed SDK has NO `Recurring` module —
-// only `Customer`, `PaymentRequest`, `Transaction`, `Balance`, `PaymentMethod`, `Refund`, `Payout`,
-// `Invoice` are constructed on the `Xendit` class. So the brief's draft
-// (`xendit.Recurring.editPlan({ id, data: { status: 'INACTIVE' } } )`) would throw at runtime —
-// `Recurring` is undefined. This function instead calls Xendit's REST API directly, mirroring the
-// exact pattern already used in ../create-xendit-session/index.ts (POST) and
-// ../xendit-webhook/index.ts (GET): Basic auth via `xendit.opts.secretKey`, base URL via
-// `xendit.opts.xenditURL ?? 'https://api.xendit.co'`.
-//
-// STILL UNCONFIRMED (genuine, irreducible uncertainty — needs a human with Xendit
-// dashboard/sandbox access to verify against a real response before this goes live):
-//   - Whether PATCH is genuinely the correct HTTP method for this endpoint (chosen here as the
-//     conventional REST verb for a partial update of an existing resource, consistent with
-//     "update-recurring-plan" naming — not confirmed against a live response).
-//   - Whether `status` is the correct field name and `'INACTIVE'` the correct enum value for
-//     deactivating a plan (kept exactly as the brief's original draft specified, just delivered via
-//     `fetch` instead of the nonexistent SDK method).
+// CONFIRMED (real sandbox calls, 2026-07-23): the installed SDK has NO `Recurring` module (see
+// Tasks 3/4's header comments for the source-level confirmation), so this calls Xendit's REST
+// API directly, same as those functions. The brief's original guess — `PATCH
+// /recurring/plans/{id}` with body `{ status: 'INACTIVE' }` — was tested directly against a
+// live plan and disproven: PATCH accepted arbitrary fields (`status`, `recurring_action`,
+// `amount`) without a schema error, but silently changed nothing (the response's `updated`
+// timestamp never moved). A plain `DELETE` on that same path returned 405. The real endpoint is
+// a dedicated action route: `POST /recurring/plans/{id}/deactivate`, no request body — a live
+// test confirmed the plan's `status` field flips to `"INACTIVE"` and `updated` advances.
 // ---------------------------------------------------------------------------------------------
 
 import { handleCors, json } from '../_shared/cors.ts';
@@ -62,20 +53,15 @@ Deno.serve(async (req) => {
   try {
     // The SDK has no Recurring module (see the file-level comment above), so this calls Xendit's
     // REST API directly — same Basic-auth pattern as ../create-xendit-session/index.ts and
-    // ../xendit-webhook/index.ts.
+    // ../xendit-webhook/index.ts. Confirmed live: this is a dedicated action endpoint, not a
+    // field update — no request body.
     const xendit = xenditClient();
     // xendit-node@7 already defaults `xenditURL` to this same value internally, so this can never
     // actually be undefined — no `?? '...'` fallback needed here.
     const xenditUrl = xendit.opts.xenditURL;
-    const res = await fetch(`${xenditUrl}/recurring/plans/${recurringPlanId}`, {
-      // VERIFY: confirm PATCH is the correct HTTP method for this endpoint against a live response.
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Basic ${btoa(`${xendit.opts.secretKey}:`)}`,
-      },
-      // VERIFY: confirm `status` is the correct field name and `'INACTIVE'` the correct enum value.
-      body: JSON.stringify({ status: 'INACTIVE' }),
+    const res = await fetch(`${xenditUrl}/recurring/plans/${recurringPlanId}/deactivate`, {
+      method: 'POST',
+      headers: { Authorization: `Basic ${btoa(`${xendit.opts.secretKey}:`)}` },
     });
     if (!res.ok) {
       const body = await res.json().catch(() => null);
