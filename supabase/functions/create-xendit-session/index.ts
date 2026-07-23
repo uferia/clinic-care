@@ -74,13 +74,16 @@ Deno.serve(async (req) => {
     const { scheduleId, amount, currency } = planConfig();
 
     // Reuse the clinic's customer so repeat checkouts do not fan out into duplicates in Xendit.
-    // Customer.createCustomer is confirmed against the real xendit-node@7 SDK docs (unlike
-    // Recurring below, which the SDK does not support).
+    // Customer.createCustomer's shape matches the SDK's CustomerRequest type (unlike Recurring
+    // below, which the SDK does not support) -- but `type` is confirmed REQUIRED at runtime by a
+    // real sandbox 400 despite being marked optional (`type?:`) in the SDK's own .d.ts, the same
+    // kind of type-vs-live-behavior mismatch already seen with the missing Recurring module.
     let customerId = sub?.xendit_customer_id as string | undefined;
     if (!customerId) {
       const customer = await xendit.Customer.createCustomer({
         data: {
           referenceId: clinicId,
+          type: 'INDIVIDUAL',
           individualDetail: { givenNames: clinic?.name ?? 'Clinic' },
           email: clinic?.email ?? undefined,
         },
