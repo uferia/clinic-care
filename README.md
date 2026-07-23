@@ -116,6 +116,12 @@ endpoint in the Xendit dashboard (test mode), subscribed to `recurring.plan.acti
 `recurring.plan.inactivated` at minimum — confirm the renewal-success event name against the
 dashboard before relying on it (see the `VERIFY` comment in `xendit-webhook/index.ts`).
 
+**Before production use**, someone with real Xendit sandbox access must also confirm:
+`recurring.plan.activated` is the ONLY thing that grants paid access, so before relying on it for
+real money, confirm it fires only after a GCash charge is actually captured — not merely the
+instant the GCash account is linked, before money has moved. If Xendit fires it on linkage alone, a
+clinic could be granted paid access before payment ever settles.
+
 Then sign in as a clinic_admin, open **Clinic → Billing → Subscribe**, and complete checkout with a
 Xendit test-mode GCash account.
 

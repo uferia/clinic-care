@@ -64,7 +64,9 @@ Deno.serve(async (req) => {
     // REST API directly — same Basic-auth pattern as ../create-xendit-session/index.ts and
     // ../xendit-webhook/index.ts.
     const xendit = xenditClient();
-    const xenditUrl = xendit.opts.xenditURL ?? 'https://api.xendit.co';
+    // xendit-node@7 already defaults `xenditURL` to this same value internally, so this can never
+    // actually be undefined — no `?? '...'` fallback needed here.
+    const xenditUrl = xendit.opts.xenditURL;
     const res = await fetch(`${xenditUrl}/recurring/plans/${recurringPlanId}`, {
       // VERIFY: confirm PATCH is the correct HTTP method for this endpoint against a live response.
       method: 'PATCH',

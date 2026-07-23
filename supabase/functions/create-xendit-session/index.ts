@@ -95,7 +95,9 @@ Deno.serve(async (req) => {
     // The SDK has no Recurring module (see the file-level comment above), so this calls Xendit's
     // REST API directly. referenceId carries clinic_id through to the webhook — replacing
     // Stripe's metadata/client_reference_id pair — PENDING LIVE CONFIRMATION (see header comment).
-    const xenditUrl = xendit.opts.xenditURL ?? 'https://api.xendit.co';
+    // xendit-node@7 already defaults `xenditURL` to this same value internally, so this can never
+    // actually be undefined — no `?? '...'` fallback needed here.
+    const xenditUrl = xendit.opts.xenditURL;
     const res = await fetch(`${xenditUrl}/recurring/plans`, {
       method: 'POST',
       headers: {
@@ -114,13 +116,18 @@ Deno.serve(async (req) => {
         failureReturnUrl: `${appUrl()}/clinic?checkout=cancelled`,
       }),
     });
-    const plan = await res.json();
+    // A non-JSON body (a gateway 502, a WAF block page, etc.) must not itself throw here — that
+    // would mask the real HTTP status behind a confusing SyntaxError. Parse defensively, then
+    // check res.ok using whatever did or didn't come back.
+    const plan = await res.json().catch(() => null) as {
+      actions?: { action: string; url: string }[];
+      message?: string;
+    } | null;
     if (!res.ok) {
       throw new Error(plan?.message ?? `Xendit recurring plan creation failed (${res.status})`);
     }
 
-    const url = (plan as { actions?: { action: string; url: string }[] })
-      .actions?.find((a) => a.action === 'AUTH')?.url;
+    const url = plan?.actions?.find((a) => a.action === 'AUTH')?.url;
     if (!url) throw new Error('Xendit did not return a checkout URL for this plan');
 
     return json({ url }, 200);

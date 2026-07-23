@@ -39,6 +39,10 @@ import { SubscribeButtonComponent } from './subscribe-button.component';
         <div class="actions">
           @if (a.status !== 'active') {
             <app-subscribe-button />
+          } @else if (cancelled()) {
+            <p class="ok" i18n="@@billing.cancelled">
+              Cancelled. Your access continues until the date above, then will not renew.
+            </p>
           } @else if (confirming()) {
             <button mat-flat-button class="danger" [disabled]="busy()" (click)="cancel()">
               <mat-icon>block</mat-icon>
@@ -55,11 +59,6 @@ import { SubscribeButtonComponent } from './subscribe-button.component';
           }
         </div>
 
-        @if (cancelled()) {
-          <p class="ok" i18n="@@billing.cancelled">
-            Cancelled. Your access continues until the date above, then will not renew.
-          </p>
-        }
         @if (error(); as message) { <p class="err">{{ message }}</p> }
       }
     </mat-card>

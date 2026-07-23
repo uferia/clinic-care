@@ -67,30 +67,33 @@ async function planDetailsFor(
   recurringPlanId: string,
 ): Promise<{ clinicId: string | null; customerId: string | null; periodEnd: string | null }> {
   const xendit = xenditClient();
-  const xenditUrl = xendit.opts.xenditURL ?? 'https://api.xendit.co';
+  // xendit-node@7 already defaults `xenditURL` to this same value internally, so this can never
+  // actually be undefined — no `?? '...'` fallback needed here.
+  const xenditUrl = xendit.opts.xenditURL;
   const res = await fetch(`${xenditUrl}/recurring/plans/${recurringPlanId}`, {
     headers: { Authorization: `Basic ${btoa(`${xendit.opts.secretKey}:`)}` },
   });
-  const plan = await res.json() as {
+  // A non-JSON body (a gateway 502, a WAF block page, etc.) must not itself throw here — that
+  // would mask the real HTTP status behind a confusing SyntaxError. Parse defensively, then check
+  // res.ok using whatever did or didn't come back.
+  const plan = await res.json().catch(() => null) as {
     reference_id?: string;
     customer_id?: string;
     schedule?: { anchor_date?: string };
-  };
+    message?: string;
+  } | null;
   if (!res.ok) {
-    throw new Error(
-      (plan as { message?: string })?.message ??
-        `Xendit recurring plan lookup failed (${res.status})`,
-    );
+    throw new Error(plan?.message ?? `Xendit recurring plan lookup failed (${res.status})`);
   }
   return {
     // VERIFY: confirm `reference_id` is the actual field name on the returned plan object.
-    clinicId: plan.reference_id ?? null,
+    clinicId: plan?.reference_id ?? null,
     // VERIFY: confirm `customer_id` is the actual field name.
-    customerId: plan.customer_id ?? null,
+    customerId: plan?.customer_id ?? null,
     // VERIFY: confirm the plan's schedule carries the next charge date under this path, and that
     // it represents the END of the period just paid for (not the start of the next one — these
     // may be the same instant, but confirm against a real captured payload).
-    periodEnd: plan.schedule?.anchor_date ?? null,
+    periodEnd: plan?.schedule?.anchor_date ?? null,
   };
 }
 
@@ -122,6 +125,19 @@ Deno.serve(async (req) => {
 
         const { clinicId, customerId, periodEnd } = await planDetailsFor(recurringPlanId);
         if (!clinicId) break;
+
+        // periodEnd comes from the unconfirmed `schedule?.anchor_date` field above (see the
+        // `VERIFY:` comment in planDetailsFor). If it resolves to null, apply_xendit_subscription
+        // would set status='active' with active_until left null — the clinic would show as
+        // "active" in that column while the access-gate (which reads active_until) treats it as
+        // not currently paid, an inconsistent stuck state. Throw instead: this hits the catch
+        // below, returns 500, and Xendit retries. The RPC is idempotent, so failing loudly here
+        // is safe and preferable to silently creating bad data.
+        if (!periodEnd) {
+          throw new Error(
+            `recurring.plan.activated: periodEnd missing/null for plan ${recurringPlanId} — refusing to apply subscription`,
+          );
+        }
 
         await admin.rpc('apply_xendit_subscription', {
           p_clinic_id: clinicId,
