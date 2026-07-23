@@ -39,16 +39,27 @@ import { SubscribeButtonComponent } from './subscribe-button.component';
         <div class="actions">
           @if (a.status !== 'active') {
             <app-subscribe-button />
+          } @else if (confirming()) {
+            <button mat-flat-button class="danger" [disabled]="busy()" (click)="cancel()">
+              <mat-icon>block</mat-icon>
+              <ng-container i18n="@@billing.confirmCancel">Confirm cancel</ng-container>
+            </button>
+            <button mat-button [disabled]="busy()" (click)="confirming.set(false)">
+              <ng-container i18n="@@billing.keepSubscription">Keep subscription</ng-container>
+            </button>
+          } @else {
+            <button mat-stroked-button [disabled]="busy()" (click)="confirming.set(true)">
+              <mat-icon>cancel</mat-icon>
+              <ng-container i18n="@@billing.cancelSubscription">Cancel subscription</ng-container>
+            </button>
           }
-          <button mat-stroked-button [disabled]="busy()" (click)="manage()">
-            <mat-icon>receipt_long</mat-icon>
-            <ng-container i18n="@@billing.manage">Manage billing</ng-container>
-          </button>
         </div>
 
-        <p class="meta" i18n="@@billing.portalHint">
-          Card details, invoices, and cancellation are handled by Stripe.
-        </p>
+        @if (cancelled()) {
+          <p class="ok" i18n="@@billing.cancelled">
+            Cancelled. Your access continues until the date above, then will not renew.
+          </p>
+        }
         @if (error(); as message) { <p class="err">{{ message }}</p> }
       }
     </mat-card>
@@ -59,6 +70,8 @@ import { SubscribeButtonComponent } from './subscribe-button.component';
     .status { font: var(--mat-sys-body-large); margin: 0 0 0.25rem; }
     .meta { color: var(--mat-sys-on-surface-variant); font: var(--mat-sys-body-small); margin: 0 0 0.75rem; }
     .actions { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; margin-bottom: 0.75rem; }
+    .danger { background: var(--mat-sys-error-container); color: var(--mat-sys-on-error-container); }
+    .ok { color: var(--mat-sys-primary); font: var(--mat-sys-body-small); margin: 0; }
     .err { color: var(--mat-sys-error); font: var(--mat-sys-body-small); margin: 0; }
   `,
 })
@@ -70,21 +83,21 @@ export class BillingAccountComponent {
   protected daysLeft = computed(() => this.ctx.daysLeft() ?? 0);
   protected busy = signal(false);
   protected error = signal<string | null>(null);
+  protected confirming = signal(false);
+  protected cancelled = signal(false);
 
-  async manage(): Promise<void> {
+  async cancel(): Promise<void> {
     if (this.busy()) return;
     this.busy.set(true);
     this.error.set(null);
     try {
-      window.location.href = await this.store.openPortal();
+      await this.store.cancel();
+      this.confirming.set(false);
+      this.cancelled.set(true);
+      await this.ctx.load();
     } catch (e) {
-      // The common case is a clinic that has never checked out, so there is no Stripe customer yet.
-      const message = e instanceof Error ? e.message : '';
-      this.error.set(
-        message.includes('no billing account')
-          ? $localize`:@@billing.noAccount:Subscribe first — there is no billing account to manage yet.`
-          : message || $localize`:@@billing.portalFailed:Could not open the billing portal.`,
-      );
+      this.error.set(e instanceof Error ? e.message : $localize`:@@billing.cancelFailed:Could not cancel the subscription.`);
+    } finally {
       this.busy.set(false);
     }
   }
