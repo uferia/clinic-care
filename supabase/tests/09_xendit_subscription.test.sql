@@ -2,12 +2,12 @@ begin;
 select plan(10);
 
 select function_privs_are(
-  'public', 'apply_stripe_subscription', array['uuid', 'text', 'text', 'timestamptz'],
+  'public', 'apply_xendit_subscription', array['uuid', 'text', 'text', 'timestamptz'],
   'authenticated', array[]::text[],
   'authenticated cannot grant itself a paid subscription'
 );
 select function_privs_are(
-  'public', 'mark_stripe_cancelled', array['text', 'boolean'],
+  'public', 'mark_xendit_cancelled', array['text', 'boolean'],
   'authenticated', array[]::text[],
   'authenticated cannot mark a subscription cancelled'
 );
@@ -22,8 +22,8 @@ insert into public.subscriptions (clinic_id, status, trial_ends_at) values
 
 -- Converting mid-trial: the paid period is added ON TOP of the unused trial.
 select lives_ok(
-  $$ select public.apply_stripe_subscription(
-       '00000000-0000-0000-0000-0000000000e1'::uuid, 'cus_1', 'sub_1', now() + interval '30 days') $$,
+  $$ select public.apply_xendit_subscription(
+       '00000000-0000-0000-0000-0000000000e1'::uuid, 'cust_1', 'plan_1', now() + interval '30 days') $$,
   'a checkout applies to the clinic'
 );
 select is(
@@ -38,15 +38,15 @@ select is(
   'paying on day 10 of a 30-day trial yields 30 paid days PLUS the 20 unused trial days'
 );
 select is(
-  (select stripe_customer_id || '/' || stripe_subscription_id
+  (select xendit_customer_id || '/' || xendit_recurring_plan_id
      from public.subscriptions where clinic_id = '00000000-0000-0000-0000-0000000000e1'),
-  'cus_1/sub_1',
-  'the Stripe identifiers are recorded'
+  'cust_1/plan_1',
+  'the Xendit identifiers are recorded'
 );
 
--- Stripe retries webhooks. A duplicate delivery must not extend access a second time.
-select public.apply_stripe_subscription(
-  '00000000-0000-0000-0000-0000000000e1'::uuid, 'cus_1', 'sub_1', now() + interval '30 days');
+-- Xendit retries webhooks. A duplicate delivery must not extend access a second time.
+select public.apply_xendit_subscription(
+  '00000000-0000-0000-0000-0000000000e1'::uuid, 'cust_1', 'plan_1', now() + interval '30 days');
 select is(
   (select round(extract(epoch from (active_until - now())) / 86400)::int
      from public.subscriptions where clinic_id = '00000000-0000-0000-0000-0000000000e1'),
@@ -54,11 +54,11 @@ select is(
   'a replayed webhook does not grant a second period'
 );
 
--- A renewal on an already-active clinic tracks Stripe's period end; no second trial credit.
-select public.apply_stripe_subscription(
-  '00000000-0000-0000-0000-0000000000e2'::uuid, 'cus_2', 'sub_2', now() + interval '30 days');
-select public.apply_stripe_subscription(
-  '00000000-0000-0000-0000-0000000000e2'::uuid, 'cus_2', 'sub_2', now() + interval '60 days');
+-- A renewal on an already-active clinic tracks Xendit's period end; no second trial credit.
+select public.apply_xendit_subscription(
+  '00000000-0000-0000-0000-0000000000e2'::uuid, 'cust_2', 'plan_2', now() + interval '30 days');
+select public.apply_xendit_subscription(
+  '00000000-0000-0000-0000-0000000000e2'::uuid, 'cust_2', 'plan_2', now() + interval '60 days');
 select is(
   (select round(extract(epoch from (active_until - now())) / 86400)::int
      from public.subscriptions where clinic_id = '00000000-0000-0000-0000-0000000000e2'),
@@ -67,7 +67,7 @@ select is(
 );
 
 -- Cancelling records intent but does NOT revoke access already paid for.
-select public.mark_stripe_cancelled('sub_2', true);
+select public.mark_xendit_cancelled('plan_2', true);
 select is(
   (select cancel_at_period_end from public.subscriptions where clinic_id = '00000000-0000-0000-0000-0000000000e2'),
   true,
