@@ -4,8 +4,9 @@ import { MatIconModule } from '@angular/material/icon';
 import { BillingAccountStore } from './billing-account.store';
 
 /**
- * Sends the clinic to Stripe Checkout. Used from the blocked screen, the trial banner, and the
- * billing tab, so the "what if Stripe is misconfigured" handling lives in exactly one place.
+ * Sends the clinic to Xendit's hosted checkout. Used from the blocked screen, the trial banner,
+ * and the billing tab, so the "what if Xendit is misconfigured" handling lives in exactly one
+ * place.
  */
 @Component({
   selector: 'app-subscribe-button',
@@ -17,7 +18,7 @@ import { BillingAccountStore } from './billing-account.store';
       (click)="subscribe()">
       <mat-icon>credit_card</mat-icon>
       @if (busy()) {
-        <ng-container i18n="@@billing.opening">Opening Stripe…</ng-container>
+        <ng-container i18n="@@billing.opening">Opening Xendit…</ng-container>
       } @else {
         {{ label() }}
       }
@@ -55,7 +56,7 @@ export class SubscribeButtonComponent {
       this.error.set(e instanceof Error ? e.message : '');
       this.busy.set(false);
     }
-    // Deliberately not clearing `busy` on success: the tab is navigating to Stripe, and a button
+    // Deliberately not clearing `busy` on success: the tab is navigating to Xendit, and a button
     // that springs back to life invites a second checkout session.
   }
 }

@@ -8,7 +8,7 @@ import { ActivityComponent } from './activity.component';
 import { BillingAccountComponent } from './billing-account.component';
 import { TeamComponent } from '../team/team.component';
 
-/** How long to keep re-checking for the webhook after Stripe sends the clinic back. */
+/** How long to keep re-checking for the webhook after Xendit sends the clinic back. */
 const CONFIRM_ATTEMPTS = 6;
 const CONFIRM_DELAY_MS = 1500;
 
@@ -27,7 +27,7 @@ const CONFIRM_DELAY_MS = 1500;
     @if (confirming()) {
       <div class="notice" role="status">
         <mat-icon>hourglass_top</mat-icon>
-        <span i18n="@@billing.confirming">Confirming your payment with Stripe…</span>
+        <span i18n="@@billing.confirming">Confirming your payment with Xendit…</span>
       </div>
     } @else if (confirmed()) {
       <div class="notice ok" role="status">
@@ -38,7 +38,7 @@ const CONFIRM_DELAY_MS = 1500;
       <div class="notice" role="status">
         <mat-icon>schedule</mat-icon>
         <span i18n="@@billing.confirmSlow">
-          Stripe took your payment; we are still waiting for confirmation. This usually lands within
+          Xendit took your payment; we are still waiting for confirmation. This usually lands within
           a minute — refresh, or contact us if it does not.
         </span>
       </div>
@@ -78,7 +78,7 @@ export class ClinicSettingsComponent {
   protected confirmed = signal(false);
   protected confirmSlow = signal(false);
 
-  /** Land on Billing when Stripe sends them back, wherever they started. */
+  /** Land on Billing when Xendit sends them back, wherever they started. */
   protected initialTab = this.route.snapshot.queryParamMap.get('checkout') ? 1 : 0;
 
   constructor() {
@@ -88,7 +88,7 @@ export class ClinicSettingsComponent {
   }
 
   /**
-   * Stripe redirects the browser back the instant checkout completes, which usually beats the
+   * Xendit redirects the browser back the instant checkout completes, which usually beats the
    * webhook that actually grants access. Poll our own context for a few seconds rather than
    * showing a paying clinic a screen that still says "no subscription".
    */

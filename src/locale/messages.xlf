@@ -262,36 +262,43 @@
           <context context-type="linenumber">34,36</context>
         </context-group>
       </trans-unit>
-      <trans-unit id="billing.manage" datatype="html">
-        <source>Manage billing</source>
+      <trans-unit id="billing.confirmCancel" datatype="html">
+        <source>Confirm cancel</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/features/clinic/billing-account.component.ts</context>
           <context context-type="linenumber">45,46</context>
         </context-group>
       </trans-unit>
-      <trans-unit id="billing.portalHint" datatype="html">
-        <source> Card details, invoices, and cancellation are handled by Stripe. </source>
+      <trans-unit id="billing.keepSubscription" datatype="html">
+        <source>Keep subscription</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/features/clinic/billing-account.component.ts</context>
-          <context context-type="linenumber">50,52</context>
+          <context context-type="linenumber">48,50</context>
         </context-group>
       </trans-unit>
-      <trans-unit id="billing.noAccount" datatype="html">
-        <source>Subscribe first — there is no billing account to manage yet.</source>
+      <trans-unit id="billing.cancelSubscription" datatype="html">
+        <source>Cancel subscription</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/features/clinic/billing-account.component.ts</context>
-          <context context-type="linenumber">85</context>
+          <context context-type="linenumber">53,55</context>
         </context-group>
       </trans-unit>
-      <trans-unit id="billing.portalFailed" datatype="html">
-        <source>Could not open the billing portal.</source>
+      <trans-unit id="billing.cancelled" datatype="html">
+        <source> Cancelled. Your access continues until the date above, then will not renew. </source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/features/clinic/billing-account.component.ts</context>
-          <context context-type="linenumber">86</context>
+          <context context-type="linenumber">60,62</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="billing.cancelFailed" datatype="html">
+        <source>Could not cancel the subscription.</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/clinic/billing-account.component.ts</context>
+          <context context-type="linenumber">99</context>
         </context-group>
       </trans-unit>
       <trans-unit id="billing.confirming" datatype="html">
-        <source>Confirming your payment with Stripe…</source>
+        <source>Confirming your payment with Xendit…</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/features/clinic/clinic-settings.component.ts</context>
           <context context-type="linenumber">30,32</context>
@@ -305,31 +312,31 @@
         </context-group>
       </trans-unit>
       <trans-unit id="billing.confirmSlow" datatype="html">
-        <source> Stripe took your payment; we are still waiting for confirmation. This usually lands within a minute — refresh, or contact us if it does not. </source>
+        <source> Xendit took your payment; we are still waiting for confirmation. This usually lands within a minute — refresh, or contact us if it does not. </source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/features/clinic/clinic-settings.component.ts</context>
           <context context-type="linenumber">41,43</context>
         </context-group>
       </trans-unit>
       <trans-unit id="billing.opening" datatype="html">
-        <source>Opening Stripe…</source>
+        <source>Opening Xendit…</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/features/clinic/subscribe-button.component.ts</context>
-          <context context-type="linenumber">20,21</context>
+          <context context-type="linenumber">21,22</context>
         </context-group>
       </trans-unit>
       <trans-unit id="billing.checkoutFailed" datatype="html">
         <source>Could not open checkout.</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/features/clinic/subscribe-button.component.ts</context>
-          <context context-type="linenumber">27,28</context>
+          <context context-type="linenumber">28,29</context>
         </context-group>
       </trans-unit>
       <trans-unit id="billing.subscribe" datatype="html">
         <source>Subscribe</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/features/clinic/subscribe-button.component.ts</context>
-          <context context-type="linenumber">39</context>
+          <context context-type="linenumber">40</context>
         </context-group>
       </trans-unit>
       <trans-unit id="trial.endsToday" datatype="html">

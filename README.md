@@ -91,58 +91,60 @@ create form, and a per-clinic detail page to add members and set the subscriptio
 Reads use RLS (super-admins can read every clinic/subscription/membership); writes
 go through the gated edge functions using the service-role key server-side.
 
-## Subscription payments (Stripe)
+## Subscription payments (Xendit)
 
-Clinics subscribe themselves through Stripe Checkout; a webhook is the only thing that grants
-paid access. **Access is always read from our own `subscriptions.active_until`, never from a live
-call to Stripe** — if Stripe is unreachable, clinics keep the access they already paid for.
+Clinics subscribe themselves through Xendit's hosted checkout (GCash); a webhook is the only thing
+that grants paid access. **Access is always read from our own `subscriptions.active_until`, never
+from a live call to Xendit** — if Xendit is unreachable, clinics keep the access they already paid
+for.
 
 ### Setup
 
-1. In Stripe, create a **recurring monthly PHP price** on your product. Copy the price ID
-   (`price_...`) — the repo never contains an amount, so changing the price needs no deploy.
-2. Fill the four `STRIPE_*` / `APP_URL` values in `.env` (see `.env.example`). Use **test** keys
-   (`sk_test_...`) until you have run the flow end to end.
+1. In Xendit, create a recurring **Schedule** (interval `MONTH` + retry rules) via the dashboard or
+   API. Copy its ID — this is `XENDIT_SCHEDULE_ID`.
+2. Fill the six `XENDIT_*` / `APP_URL` values in `.env` (see `.env.example`). Use **test-mode** keys
+   (`xnd_development_...`) until you have run the flow end to end.
 3. Restart the stack so the secrets load: `npx supabase stop && npx supabase start`.
 
 ### Testing locally
 
-The webhook must reach your machine, so run Stripe's forwarder in a second terminal:
+Xendit's webhook has no local-forwarding CLI equivalent to Stripe's `stripe listen` as far as this
+integration has confirmed — webhooks must reach a publicly routable URL. Use a tunnel
+(`ngrok http 54321`, or similar) pointed at
+`http://127.0.0.1:54321/functions/v1/xendit-webhook`, and register that public URL as the webhook
+endpoint in the Xendit dashboard (test mode), subscribed to `recurring.plan.activated` and
+`recurring.plan.inactivated` at minimum — confirm the renewal-success event name against the
+dashboard before relying on it (see the `VERIFY` comment in `xendit-webhook/index.ts`).
 
-    stripe login
-    stripe listen --forward-to http://127.0.0.1:54321/functions/v1/stripe-webhook
+Then sign in as a clinic_admin, open **Clinic → Billing → Subscribe**, and complete checkout with a
+Xendit test-mode GCash account.
 
-`stripe listen` prints a `whsec_...` signing secret — put **that** in `STRIPE_WEBHOOK_SECRET` and
-restart the stack. Then sign in as a clinic_admin, open **Clinic → Billing → Subscribe**, and pay
-with Stripe's test card `4242 4242 4242 4242` (any future expiry, any CVC).
-
-Watch it land:
-
-    stripe trigger invoice.paid        # simulate a renewal
-    npx supabase functions logs stripe-webhook
+Watch it land: `npx supabase functions logs xendit-webhook`
 
 ### How it behaves
 
 - **Trial credit.** A clinic converting mid-trial keeps its unused days: the paid period is added
   on top. Paying on day 10 of a 30-day trial gives 30 + 20 = 50 days.
-- **Idempotent.** Stripe retries deliveries. Access is set *from* Stripe's period end rather than
-  by adding a month, and it never moves backwards, so a replay can neither double-grant nor
-  confiscate trial credit.
-- **Cancellation does not revoke access.** It records `cancel_at_period_end`; the clinic keeps what
-  it paid for until `active_until` passes, then lapses through the normal gate.
-- **A failed renewal does not evict anyone.** It is recorded in the audit trail; Stripe retries on
-  its own schedule and access lapses naturally if payment never succeeds.
-- **`verify_jwt = false`** for `stripe-webhook` only (Stripe holds no Supabase JWT). Its safety is
-  the signature check in the handler — an unsigned body is rejected before touching the database.
+- **Idempotent.** Xendit retries webhook deliveries. Access is set *from* Xendit's period end
+  rather than by adding a month, and it never moves backwards, so a replay can neither
+  double-grant nor confiscate trial credit.
+- **Cancellation does not revoke access.** The Billing tab's Cancel button calls Xendit directly
+  and records `cancel_at_period_end`; the clinic keeps what it paid for until `active_until`
+  passes, then lapses through the normal gate. There is no self-service payment-method swap.
+- **A failed renewal does not evict anyone.** It is recorded in the audit trail; access lapses
+  naturally if payment never succeeds.
+- **`verify_jwt = false`** for `xendit-webhook` only (Xendit holds no Supabase JWT). Its safety is
+  a constant-time compare of the `x-callback-token` header against `XENDIT_CALLBACK_TOKEN` — a
+  static shared secret, not an HMAC signature. Rotate it if it is ever exposed.
 
 ### Deploying
 
-    npx supabase secrets set STRIPE_SECRET_KEY=... STRIPE_PRICE_ID=... STRIPE_WEBHOOK_SECRET=... APP_URL=...
-    npx supabase functions deploy create-checkout-session stripe-webhook create-portal-session
+    npx supabase secrets set XENDIT_SECRET_KEY=... XENDIT_SCHEDULE_ID=... XENDIT_PLAN_AMOUNT=... XENDIT_PLAN_CURRENCY=... XENDIT_CALLBACK_TOKEN=... APP_URL=...
+    npx supabase functions deploy create-xendit-session xendit-webhook cancel-subscription
 
-Then add the endpoint in Stripe (Developers → Webhooks) pointing at your deployed
-`stripe-webhook` URL, subscribed to: `checkout.session.completed`, `invoice.paid`,
-`invoice.payment_failed`, `customer.subscription.updated`, `customer.subscription.deleted`.
+Then add the webhook endpoint in the Xendit Dashboard (Developers → Webhooks) pointing at your
+deployed `xendit-webhook` URL, and confirm your account's callback verification token there matches
+`XENDIT_CALLBACK_TOKEN`.
 
 ## Translations (i18n)
 
