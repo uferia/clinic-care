@@ -396,15 +396,17 @@ deno_version = 2
 # Values resolved from the gitignored root `.env` file (see .env.example).
 GCS_BUCKET = "env(GCS_BUCKET)"
 GCS_SA_KEY = "env(GCS_SA_KEY)"
-STRIPE_SECRET_KEY = "env(STRIPE_SECRET_KEY)"
-STRIPE_PRICE_ID = "env(STRIPE_PRICE_ID)"
-STRIPE_WEBHOOK_SECRET = "env(STRIPE_WEBHOOK_SECRET)"
+XENDIT_SECRET_KEY = "env(XENDIT_SECRET_KEY)"
+XENDIT_SCHEDULE_ID = "env(XENDIT_SCHEDULE_ID)"
+XENDIT_PLAN_AMOUNT = "env(XENDIT_PLAN_AMOUNT)"
+XENDIT_PLAN_CURRENCY = "env(XENDIT_PLAN_CURRENCY)"
+XENDIT_CALLBACK_TOKEN = "env(XENDIT_CALLBACK_TOKEN)"
 APP_URL = "env(APP_URL)"
 
-# Stripe calls this one, and Stripe has no Supabase JWT. Its safety comes from the
-# signature check in the handler (constructEventAsync), NOT from an auth header —
-# see supabase/functions/stripe-webhook/index.ts.
-[functions.stripe-webhook]
+# Xendit calls this one, and Xendit has no Supabase JWT. Its safety comes from the
+# x-callback-token check in the handler, NOT from an auth header —
+# see supabase/functions/xendit-webhook/index.ts.
+[functions.xendit-webhook]
 verify_jwt = false
 
 [analytics]
