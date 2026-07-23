@@ -14,11 +14,13 @@
 // `Invoice` are constructed on the `Xendit` class. So `xendit.Recurring.getPlan(...)` (as drafted
 // in the Task 4 brief) would throw at runtime — `Recurring` is undefined. planDetailsFor below
 // calls Xendit's REST API directly instead, mirroring the exact pattern already used for plan
-// creation in ../create-xendit-session/index.ts (Basic auth via `xendit.opts.secretKey`, base URL
-// via `xendit.opts.xenditURL ?? 'https://api.xendit.co'`). The response field names below
-// (reference_id, customer_id, schedule.anchor_date) are unconfirmed against a live response for
-// this specific GET endpoint, same as the POST endpoint's request shape was in Task 3 — hence the
-// VERIFY comments are kept, not removed.
+// creation in ../create-xendit-session/index.ts (Basic auth via `xendit.opts.secretKey`).
+//
+// UPDATE (2026-07-23, real sandbox call against POST /recurring/plans — this GET endpoint
+// returns the same plan object shape): `reference_id` and `customer_id` ARE confirmed as the
+// real field names on the plan object. `schedule.anchor_date` also genuinely exists at that
+// path, but its VALUE is suspect for this purpose — see the VERIFY comment below, which is now
+// about semantics rather than field-name existence.
 // ---------------------------------------------------------------------------------------------
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
@@ -86,13 +88,19 @@ async function planDetailsFor(
     throw new Error(plan?.message ?? `Xendit recurring plan lookup failed (${res.status})`);
   }
   return {
-    // VERIFY: confirm `reference_id` is the actual field name on the returned plan object.
+    // Confirmed field name via a real POST /recurring/plans response (2026-07-23).
     clinicId: plan?.reference_id ?? null,
-    // VERIFY: confirm `customer_id` is the actual field name.
+    // Confirmed field name via the same real response.
     customerId: plan?.customer_id ?? null,
-    // VERIFY: confirm the plan's schedule carries the next charge date under this path, and that
-    // it represents the END of the period just paid for (not the start of the next one — these
-    // may be the same instant, but confirm against a real captured payload).
+    // VERIFY: `schedule.anchor_date` exists at this path (confirmed), but its semantics are
+    // suspect: a real sandbox schedule-creation call showed anchor_date equal to the SCHEDULE's
+    // own creation time, not a per-plan value — and schedules are explicitly reused across
+    // clinics/plans (see .env.example), so every plan referencing the same schedule_id would read
+    // the identical anchor_date. That cannot be a valid per-clinic period-end. The real field is
+    // likely on a per-plan "cycle" resource instead (e.g. GET /recurring/plans/{id}/cycles),
+    // unconfirmed because no payment has completed yet in this environment to produce one. Do NOT
+    // trust this value against real money until a completed test payment's cycle data is captured
+    // and this is replaced with the correct source.
     periodEnd: plan?.schedule?.anchor_date ?? null,
   };
 }

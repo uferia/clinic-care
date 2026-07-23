@@ -21,19 +21,19 @@
 // (`createCustomer({ data: { referenceId, individualDetail, email } } )` matches exactly) and is
 // unchanged.
 //
-// STILL UNCONFIRMED (genuine, irreducible uncertainty — needs a human with Xendit
-// dashboard/sandbox access to verify against a real test call before this goes live):
-//   - The exact request field names/shape for POST /recurring/plans (kept as the brief's
-//     camelCase draft — referenceId, customerId, recurringAction, currency, amount, scheduleId,
-//     immediateActionType, successReturnUrl, failureReturnUrl — since that shape recurred across
-//     the original design research and one search result, and Xendit's other modern APIs
-//     confirmed here, e.g. Customer, are also camelCase; but this was never confirmed against a
-//     live/authoritative schema).
-//   - Whether the checkout URL genuinely comes back as an `actions` array entry with
-//     `action: 'AUTH'`.
-//   - Whether `referenceId` really passes through to the created plan/webhook payload.
-//   - Whether `amount` is a whole-currency-unit number or a smallest-unit integer (see the same
-//     open question already flagged in ../_shared/xendit.ts).
+// CONFIRMED LIVE (2026-07-23, real sandbox calls against POST /recurring/schedules,
+// POST /customers, and POST /recurring/plans — not doc-summarization):
+//   - The Recurring v2 REST API is snake_case throughout (reference_id, customer_id,
+//     recurring_action, schedule_id, immediate_action_type, success_return_url,
+//     failure_return_url), NOT the camelCase the brief's draft originally assumed. The SDK's
+//     Customer module is a separate case: its JS method takes camelCase params and translates
+//     them to this same snake_case wire shape internally, so Customer.createCustomer above is
+//     unaffected and stays correct as-is.
+//   - The checkout URL does come back as an `actions` array entry with `action: 'AUTH'`, exactly
+//     as originally drafted — confirmed against a real plan-creation response.
+//   - `reference_id` does pass through unchanged onto the created plan object (readable by the
+//     webhook as `plan.reference_id`).
+//   - `amount` is a whole-currency-unit number (500 in, 500 back), not a smallest-unit integer.
 // ---------------------------------------------------------------------------------------------
 
 import { handleCors, json } from '../_shared/cors.ts';
@@ -93,8 +93,8 @@ Deno.serve(async (req) => {
     }
 
     // The SDK has no Recurring module (see the file-level comment above), so this calls Xendit's
-    // REST API directly. referenceId carries clinic_id through to the webhook — replacing
-    // Stripe's metadata/client_reference_id pair — PENDING LIVE CONFIRMATION (see header comment).
+    // REST API directly. reference_id carries clinic_id through to the webhook — replacing
+    // Stripe's metadata/client_reference_id pair — confirmed live, see header comment.
     // xendit-node@7 already defaults `xenditURL` to this same value internally, so this can never
     // actually be undefined — no `?? '...'` fallback needed here.
     const xenditUrl = xendit.opts.xenditURL;
@@ -105,15 +105,15 @@ Deno.serve(async (req) => {
         Authorization: `Basic ${btoa(`${xendit.opts.secretKey}:`)}`,
       },
       body: JSON.stringify({
-        referenceId: clinicId,
-        customerId,
-        recurringAction: 'PAYMENT',
+        reference_id: clinicId,
+        customer_id: customerId,
+        recurring_action: 'PAYMENT',
         currency,
         amount,
-        scheduleId,
-        immediateActionType: 'FULL_AMOUNT',
-        successReturnUrl: `${appUrl()}/clinic?checkout=success`,
-        failureReturnUrl: `${appUrl()}/clinic?checkout=cancelled`,
+        schedule_id: scheduleId,
+        immediate_action_type: 'FULL_AMOUNT',
+        success_return_url: `${appUrl()}/clinic?checkout=success`,
+        failure_return_url: `${appUrl()}/clinic?checkout=cancelled`,
       }),
     });
     // A non-JSON body (a gateway 502, a WAF block page, etc.) must not itself throw here — that
