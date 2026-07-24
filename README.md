@@ -145,12 +145,40 @@ Watch it land: `npx supabase functions logs xendit-webhook`
 
 ### Deploying
 
+One-time, if this machine hasn't deployed to this project before:
+
+    npx supabase login
+    npx supabase link --project-ref YOUR_PROJECT_REF
+
+Then, every time secrets change or the functions are updated:
+
     npx supabase secrets set XENDIT_SECRET_KEY=... XENDIT_SCHEDULE_ID=... XENDIT_PLAN_AMOUNT=... XENDIT_PLAN_CURRENCY=... XENDIT_CALLBACK_TOKEN=... APP_URL=...
     npx supabase functions deploy create-xendit-session xendit-webhook cancel-subscription
 
 Then add the webhook endpoint in the Xendit Dashboard (Developers → Webhooks) pointing at your
 deployed `xendit-webhook` URL, and confirm your account's callback verification token there matches
 `XENDIT_CALLBACK_TOKEN`.
+
+**Going live (test-mode → production), in order:**
+
+1. Complete Xendit's business verification (Dashboard shows a "Verify Your Business" banner until
+   this is done — required before live-mode keys or real charges work at all).
+2. Generate a **live-mode** secret key (`xnd_production_...`) under the dashboard's Live view — this
+   is a separate key/view from the test-mode one used during development, not a toggle on the same
+   key.
+3. Xendit's test-mode and live-mode webhooks are registered separately. Repeat the webhook
+   registration (Dashboard → Developers → Webhooks, switched to Live) pointing at the deployed
+   function URL — the test-mode ngrok/localhost registration from development does not carry over.
+4. Re-run the `secrets set` command above with the live-mode `XENDIT_SECRET_KEY` and a fresh
+   `XENDIT_CALLBACK_TOKEN` (the live webhook page shows its own verification token, separate from
+   test mode's).
+5. If any test-mode secret key was ever pasted somewhere it shouldn't have been (chat, a tracked
+   file, a screenshot) — revoke and regenerate it in the dashboard before treating this integration
+   as done, even though it's test-mode-only and low-stakes on its own.
+6. Confirm the two items still open from local testing before relying on this for real money: the
+   renewal-success webhook event name (see the `VERIFY` comment in `xendit-webhook/index.ts`), and
+   whether `recurring.plan.activated` fires only after a GCash charge is captured rather than merely
+   on account linkage (see "Testing locally" above).
 
 ## Translations (i18n)
 
