@@ -53,3 +53,8 @@ supabase/.branches
 
 # Playwright MCP artifacts
 .playwright-mcp/
+
+# Claude Code / GSD tooling
+/.claude/
+/.planning/
+/graphify-out/
