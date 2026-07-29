@@ -402,6 +402,7 @@ XENDIT_PLAN_AMOUNT = "env(XENDIT_PLAN_AMOUNT)"
 XENDIT_PLAN_CURRENCY = "env(XENDIT_PLAN_CURRENCY)"
 XENDIT_CALLBACK_TOKEN = "env(XENDIT_CALLBACK_TOKEN)"
 APP_URL = "env(APP_URL)"
+ANTHROPIC_API_KEY = "env(ANTHROPIC_API_KEY)"
 
 # Xendit calls this one, and Xendit has no Supabase JWT. Its safety comes from the
 # x-callback-token check in the handler, NOT from an auth header —

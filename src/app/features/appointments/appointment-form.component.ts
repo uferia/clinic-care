@@ -20,6 +20,7 @@ import {
 import { toPatient } from '../patients/patient.model';
 import { toDoctor } from '../doctors/doctor.model';
 import { SUPABASE } from '../../core/supabase.client';
+import { edgeError } from '../../core/edge-error';
 import {
   combineDateTime,
   fromHm,
@@ -29,6 +30,16 @@ import {
 } from '../../core/date.util';
 import { firstMessage } from '../../core/form-errors';
 import { AppointmentStore } from './appointment.store';
+import { matchPatientByName } from './patient-name-match.util';
+
+/** Shape returned by the parse-appointment-request edge function. */
+interface ParsedBookingRequest {
+  doctorId: string | null;
+  patientNameGuess: string;
+  date: string | null;
+  time: string | null;
+  reason: string;
+}
 
 /** Form-side model: date and time are Dates so the pickers can bind to them. */
 interface BookingFormModel {
@@ -62,6 +73,37 @@ interface BookingFormModel {
       </a>
       <h1>{{ id() ? 'Reschedule' : 'Book' }} Appointment</h1>
     </header>
+
+    <mat-card appearance="outlined" class="assist-card">
+      <mat-card-content>
+        <div class="assist-row">
+          <mat-form-field appearance="outline" class="assist-input">
+            <mat-label>Describe the booking</mat-label>
+            <input
+              matInput
+              placeholder="e.g. book Maria Santos with Dr. Cruz next Tuesday afternoon, follow-up"
+              [value]="assistantText()"
+              (input)="assistantText.set($any($event.target).value)"
+              (keydown.enter)="$event.preventDefault(); fillFromText()" />
+            <mat-hint>Used to fill the form below — not stored</mat-hint>
+          </mat-form-field>
+          <button
+            mat-stroked-button
+            type="button"
+            [disabled]="!assistantText().trim() || assistantBusy()"
+            (click)="fillFromText()">
+            @if (assistantBusy()) {
+              <mat-spinner diameter="18" />
+            } @else {
+              Fill form
+            }
+          </button>
+        </div>
+        @if (assistantError()) {
+          <div class="save-error" role="alert">{{ assistantError() }}</div>
+        }
+      </mat-card-content>
+    </mat-card>
 
     <mat-card appearance="outlined">
       <mat-card-content>
@@ -170,6 +212,24 @@ interface BookingFormModel {
       margin-bottom: 1.25rem;
     }
 
+    .assist-card {
+      margin-bottom: 1rem;
+    }
+
+    .assist-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+    }
+
+    .assist-input {
+      flex: 1;
+    }
+
+    .assist-row button {
+      margin-top: 0.375rem;
+    }
+
     h1 {
       font: var(--mat-sys-headline-small);
       margin: 0;
@@ -230,6 +290,10 @@ export class AppointmentFormComponent {
   saving = signal(false);
   saveError = signal<string | null>(null);
   statuses = APPOINTMENT_STATUSES;
+
+  assistantText = signal('');
+  assistantBusy = signal(false);
+  assistantError = signal<string | null>(null);
 
   private patientsResource = resource({
     loader: async () => {
@@ -323,6 +387,44 @@ export class AppointmentFormComponent {
           });
         });
     });
+  }
+
+  /**
+   * Sends the free-text description to the AI booking assistant and fills the
+   * form fields with what comes back. Never writes anything itself — staff
+   * still reviews and hits Save. A blank/ambiguous patient match is left for
+   * staff to pick manually rather than risk booking the wrong patient.
+   */
+  async fillFromText() {
+    const text = this.assistantText().trim();
+    if (!text) return;
+
+    this.assistantBusy.set(true);
+    this.assistantError.set(null);
+    try {
+      const { data, error } = await this.supabase.functions.invoke('parse-appointment-request', {
+        body: { text },
+      });
+      if (error) throw await edgeError(error);
+      const parsed = data as ParsedBookingRequest;
+
+      const patientId = parsed.patientNameGuess
+        ? matchPatientByName(parsed.patientNameGuess, this.patients())
+        : null;
+
+      this.model.update((m) => ({
+        ...m,
+        patientId: patientId ?? m.patientId,
+        doctorId: parsed.doctorId ?? m.doctorId,
+        date: fromIsoDate(parsed.date) ?? m.date,
+        time: fromHm(parsed.time) ?? m.time,
+        reason: parsed.reason || m.reason,
+      }));
+    } catch (e) {
+      this.assistantError.set(e instanceof Error ? e.message : "Couldn't fill the form.");
+    } finally {
+      this.assistantBusy.set(false);
+    }
   }
 
   save() {

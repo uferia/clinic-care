@@ -91,6 +91,21 @@ create form, and a per-clinic detail page to add members and set the subscriptio
 Reads use RLS (super-admins can read every clinic/subscription/membership); writes
 go through the gated edge functions using the service-role key server-side.
 
+## AI booking assistant
+
+The appointment form has a "Describe the booking" box: staff type something like
+*"book Maria Santos with Dr. Cruz next Tuesday afternoon, follow-up"* and it fills
+the Patient/Doctor/Date/Time/Reason fields. It never books anything itself — staff
+still review and hit the normal Save button.
+
+Parsing runs server-side in `supabase/functions/parse-appointment-request`
+(Claude Opus 4.8, structured JSON output only). Set `ANTHROPIC_API_KEY` in `.env`
+(get a key from the Anthropic Console) and restart the stack:
+`npx supabase stop && npx supabase start`. Only the clinic's doctor list (id +
+name) is sent to Claude; the patient list never is — the returned patient name
+guess is fuzzy-matched locally against patients already loaded in the browser,
+and an ambiguous or missing match is left blank for staff to pick manually.
+
 ## Subscription payments (Xendit)
 
 Clinics subscribe themselves through Xendit's hosted checkout (GCash); a webhook is the only thing
